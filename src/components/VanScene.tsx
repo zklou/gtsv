@@ -205,6 +205,7 @@ type Props = {
   showProvision: boolean;
   layout: Layout;
   phase: Phase;
+  seatSide: boolean;
   gantryLevel: GantryLevel;
   onSelect: (part: Part) => void;
   annotations: Annotation[];
@@ -216,7 +217,7 @@ type Props = {
 };
 type Screen = { x: number; y: number; ax: number; ay: number; visible: boolean };
 
-export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, gantryLevel, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
+export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, seatSide, gantryLevel, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [positions, setPositions] = useState<Record<string, Screen>>({});
@@ -737,52 +738,73 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       ceilPanel.visible = camera.position.y < H;
     };
 
-    /* ---- RIGHT wall: passenger seating, longitudinal, facing the aisle ----
-       The photo cuts the backrest off, so seat count, back height and belt
-       positions are not drawn in.                                          */
+    /* ---- RIGHT wall: passenger seating on swivel bases ----
+       The seats change facing rather than sliding fore and aft: forward, or
+       turned in to face the aisle and the workstation. Two shells, per the
+       double seat kit on the quote; back height and belt positions are not
+       established by the photos and are not drawn in.                      */
     const p1Seats = new THREE.Group();
-    const benchLen = 1.45, benchDepth = 0.55, benchZ = 5.75;
-    const benchX = CARGO_W / 2 - benchDepth / 2 - 0.03;
-    const benchFront = benchX - benchDepth / 2;
-    solid(p1Seats, P.vinyl, benchDepth - 0.04, 0.38, benchLen - 0.10, benchX, F + 0.20, benchZ);   // black base box
-    [-1, 1].forEach(sd => solid(p1Seats, P.vinyl, benchDepth, 0.42, 0.05, benchX, F + 0.22,
-      benchZ + sd * (benchLen / 2 - 0.02)));                                                       // end panels
-    box(p1Seats, P.vinyl, benchDepth - 0.02, 0.05, benchLen - 0.12, benchX, F + 0.41, benchZ, false);
-    solid(p1Seats, P.fabric, benchDepth, 0.14, benchLen, benchX, F + 0.48, benchZ);                // seat cushion
-    for (let i = 0; i < 3; i++) box(p1Seats, P.seam, benchDepth - 0.04, 0.012, 0.014,
-      benchX, F + 0.552, benchZ - benchLen / 2 + benchLen * (i + 1) / 4, false);                   // cushion pleats
-    solid(p1Seats, P.vinyl, 0.17, 0.50, benchLen, CARGO_W / 2 - 0.09, F + 0.82, benchZ);            // back bolster on the wall
-    box(p1Seats, P.fabric, 0.05, 0.40, benchLen - 0.06, CARGO_W / 2 - 0.19, F + 0.82, benchZ, false);  // light facing
-    for (let i = 0; i < 3; i++) box(p1Seats, P.seam, 0.016, 0.34, 0.014,
-      CARGO_W / 2 - 0.215, F + 0.82, benchZ - benchLen / 2 + benchLen * (i + 1) / 4, false);
-    box(p1Seats, P.vinyl, 0.06, 0.07, benchLen, benchFront + 0.02, F + 0.40, benchZ, false);       // front nosing
+    const seatDepth = 0.54;
+    const seatX = CARGO_W / 2 - seatDepth / 2 - 0.05;
+    const railZ0 = 4.95, railZ1 = 6.55;
+    solid(p1Seats, P.vinyl, seatDepth + 0.04, 0.09, railZ1 - railZ0, seatX, F + 0.045,
+      (railZ0 + railZ1) / 2);                                                            // floor base rail
+    [-1, 1].forEach(sd => box(p1Seats, P.plate, seatDepth + 0.04, 0.012, 0.06, seatX, F + 0.095,
+      (railZ0 + railZ1) / 2 + sd * ((railZ1 - railZ0) / 2 - 0.05), false));
+
+    const seatShells: THREE.Group[] = [];
+    [-1, 1].forEach(sd => {
+      const shell = new THREE.Group();
+      shell.position.set(seatX, 0, (railZ0 + railZ1) / 2 + sd * 0.40);
+      p1Seats.add(shell);
+      seatShells.push(shell);
+
+      tube(shell, P.plate, 0.16, 0.05, 0, F + 0.12, 0);                                  // swivel plate
+      tube(shell, P.vinyl, 0.07, 0.22, 0, F + 0.25, 0);                                  // pedestal column
+      solid(shell, P.vinyl, 0.48, 0.10, seatDepth - 0.04, 0, F + 0.41, 0);               // seat frame
+      solid(shell, P.fabric, 0.50, 0.13, seatDepth, 0, F + 0.50, 0);                     // seat cushion
+      [-1, 1].forEach(o => box(shell, P.seam, 0.014, 0.012, seatDepth - 0.06, o * 0.14, F + 0.567, 0, false));
+      box(shell, P.vinyl, 0.50, 0.07, 0.08, 0, F + 0.47, -seatDepth / 2 + 0.02, false);  // front nosing
+
+      const back = new THREE.Group();
+      back.position.set(0, F + 0.55, seatDepth / 2 - 0.05);
+      back.rotation.x = -0.13;
+      shell.add(back);
+      solid(back, P.vinyl, 0.50, 0.54, 0.13, 0, 0.26, 0.01);                             // back bolster
+      box(back, P.fabric, 0.38, 0.46, 0.05, 0, 0.26, -0.055, false);                     // light facing
+      [0.13, 0.27, 0.41].forEach(y => box(back, P.seam, 0.34, 0.012, 0.014, 0, y, -0.082, false));
+    });
+
+    const setFacing = (side: boolean) =>
+      seatShells.forEach(shell => { shell.rotation.y = side ? Math.PI / 2 : 0; });
+    setFacing(seatSide);
     phaseOne.add(p1Seats); parts.p1Seats = p1Seats;
 
     /* ---- LEFT wall: workstation, monitor and drawer cabinets (not quoted) ---- */
     const p1Gap = new THREE.Group();
-    const deskZ0 = 3.55, deskZ1 = 5.30, deskX = -0.52, deskY = F + 0.76;
+    const deskZ0 = 4.05, deskZ1 = 5.80, deskX = -0.52, deskY = F + 0.76;
     ghostBox(p1Gap, 0.58, 0.045, deskZ1 - deskZ0, deskX, deskY, (deskZ0 + deskZ1) / 2);            // wooden worktop
     ghostBox(p1Gap, 0.60, 0.030, 0.05, deskX, deskY + 0.038, deskZ0 + 0.03);                       // upstand at the wall end
     ghostBox(p1Gap, 0.56, 0.70, 0.035, deskX, F + 0.39, deskZ1 - 0.02);                            // closed end panel, rear
     ghostBox(p1Gap, 0.56, 0.70, 0.035, deskX, F + 0.39, deskZ0 + 0.02);                            // closed end panel, front
     ghostBox(p1Gap, 0.52, 0.10, deskZ1 - deskZ0 - 0.12, deskX - 0.02, F + 0.68, (deskZ0 + deskZ1) / 2);  // frame rail, otherwise open underneath
-    ghostBox(p1Gap, 0.52, 0.74, 0.88, -0.55, F + 0.37, 3.05);                                      // drawer cabinets
+    ghostBox(p1Gap, 0.52, 0.74, 0.88, -0.55, F + 0.37, 3.55);                                      // drawer cabinets
     for (let i = 0; i < 6; i++) {
-      box(p1Gap, P.notQuoted, 0.014, 0.095, 0.82, -0.292, F + 0.08 + i * 0.118, 3.05, false);
-      box(p1Gap, P.seam, 0.010, 0.020, 0.18, -0.286, F + 0.08 + i * 0.118, 3.05, false);           // recessed handle
+      box(p1Gap, P.notQuoted, 0.014, 0.095, 0.82, -0.292, F + 0.08 + i * 0.118, 3.55, false);
+      box(p1Gap, P.seam, 0.010, 0.020, 0.18, -0.286, F + 0.08 + i * 0.118, 3.55, false);           // recessed handle
     }
-    ghostBox(p1Gap, 0.05, 0.08, 0.30, -0.80, F + 1.22, 4.40);                                      // monitor arm
-    ghostBox(p1Gap, 0.035, 0.52, 0.92, -0.755, F + 1.26, 4.40);                                    // wall monitor
+    ghostBox(p1Gap, 0.05, 0.08, 0.30, -0.80, F + 1.22, 4.95);                                      // monitor arm
+    ghostBox(p1Gap, 0.035, 0.52, 0.92, -0.755, F + 1.26, 4.95);                                    // wall monitor
     phaseOne.add(p1Gap);
 
     /* ---- quoted power, tucked under the worktop ---- */
     const p1Power = new THREE.Group();
     const pwX = -0.70;
-    solid(p1Power, M.rackFace, 0.42, 0.22, 0.28, pwX, F + 0.13, 5.00);                             // 5000 W inverter
-    [-0.07, 0.07].forEach(o => box(p1Power, P.seam, 0.28, 0.022, 0.016, pwX, F + 0.13 + o, 4.86, false));
-    ghostBox(p1Power, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.35);                                      // battery: on neither quote
-    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.35), V3(pwX - 0.04, F + 0.24, 5.00), 0.026);
-    solid(p1Power, M.dark, 0.06, 0.06, 0.06, pwX - 0.04, F + 0.24, 4.68, false);                   // 250 A fuse holder
+    solid(p1Power, M.rackFace, 0.42, 0.22, 0.28, pwX, F + 0.13, 5.50);                             // 5000 W inverter
+    [-0.07, 0.07].forEach(o => box(p1Power, P.seam, 0.28, 0.022, 0.016, pwX, F + 0.13 + o, 5.36, false));
+    ghostBox(p1Power, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.85);                                      // battery: on neither quote
+    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.85), V3(pwX - 0.04, F + 0.24, 5.50), 0.026);
+    solid(p1Power, M.dark, 0.06, 0.06, 0.06, pwX - 0.04, F + 0.24, 5.18, false);                   // 250 A fuse holder
     phaseOne.add(p1Power); parts.p1Power = p1Power;
 
     /* ---- fold-up jump seat between the cab seats: a later option, not quoted.
@@ -1243,7 +1265,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       renderer.dispose();
       api.current = null;
     };
-  }, [body, layout, phase, gantryLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [body, layout, phase, seatSide, gantryLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { api.current?.setView(view); }, [view]);
   useEffect(() => { api.current?.setLimit(showLimit); }, [showLimit]);

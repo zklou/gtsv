@@ -31,7 +31,7 @@ const detail: Record<Part, DeviceSpec> = {
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
   p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
   p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
-  p1Seats: { title: 'Passenger seating, right wall', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Floor mounting and reinforcement'], status: 'Option B only, $4,125 installed. Drawn the way the reference photos place it: longitudinal along the right wall, seating surface facing the centre aisle, aft of the side-door aperture. The photo cuts off the backrest, so seat count, back height and belt positions are not drawn in and still need to be fixed with Patrick.' },
+  p1Seats: { title: 'Passenger seating, right wall', items: ['Tim Van double captain seat kit, two shells', 'Swivel bases: forward or turned in to the aisle', 'DOT-approved three-point belts', 'Floor base rail and reinforcement'], status: 'Option B only, $4,125 installed. Along the right wall aft of the side-door aperture, on swivel bases: the seats change facing rather than sliding fore and aft. Use the Seats switch beside the model to compare both. Back height and belt positions are not established by the photos and are not drawn in; settle them with Patrick at the drop-off meeting.' },
   p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
@@ -132,6 +132,7 @@ export default function Home() {
   const [provision, setProvision] = useState(true);
   const [layout, setLayout] = useState<Layout>('sheet');
   const [phase, setPhase] = useState<Phase>('phase1');
+  const [seatSide, setSeatSide] = useState(true);
   const [gantryLevel, setGantryLevel] = useState<GantryLevel>('roof');
   const [panel, setPanel] = useState<'phase1' | 'layout' | 'dimensions' | 'sources'>('phase1');
   const [annotations, setAnnotations] = useState<Annotation[]>(savedPoints);
@@ -185,7 +186,7 @@ export default function Home() {
     <main className="workspace">
       <section className="model-pane" aria-label="Vehicle model">
         <div className="viewer-wrap">
-          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame && !first} showRequested={requested && !first} showDoorSwing={doorSwing} showProvision={provision && !first} layout={first ? 'sheet' : layout} phase={phase} gantryLevel={gantryLevel} onSelect={choose}
+          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame && !first} showRequested={requested && !first} showDoorSwing={doorSwing} showProvision={provision && !first} layout={first ? 'sheet' : layout} phase={phase} seatSide={seatSide} gantryLevel={gantryLevel} onSelect={choose}
             annotations={annotations} addMode={addMode} selectedAnnotation={selectedAnnotation} onAddAnnotation={addAnnotation} onMoveAnnotation={moveAnnotation}
             onSelectAnnotation={id => { setSelectedAnnotation(id); setSelected(null); setPanel('layout'); }} />
           <div className="stage-height">{first
@@ -204,6 +205,11 @@ export default function Home() {
             <button type="button" className={first ? 'active' : ''} onClick={() => { setPhase('phase1'); setPanel('phase1'); setView('interior'); }}>Phase 1</button>
             <button type="button" className={!first ? 'active' : ''} onClick={() => setPhase('full')}>Full concept</button>
           </div>
+          {first && <div className="variant" role="group" aria-label="Seat facing">
+            <span>Seats</span>
+            <button type="button" className={seatSide ? 'active' : ''} onClick={() => { setSeatSide(true); setView('interior'); }}>Face the aisle</button>
+            <button type="button" className={!seatSide ? 'active' : ''} onClick={() => { setSeatSide(false); setView('interior'); }}>Face forward</button>
+          </div>}
           {!first && <div className="variant" role="group" aria-label="Sensor architecture">
             <span>Layout</span>
             <button type="button" className={layout === 'sheet' ? 'active' : ''} onClick={() => setLayout('sheet')}>Our sheet</button>
