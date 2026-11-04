@@ -746,7 +746,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     const p1Seats = new THREE.Group();
     const seatDepth = 0.54;
     const seatX = CARGO_W / 2 - seatDepth / 2 - 0.05;
-    const railZ0 = 4.95, railZ1 = 6.55;
+    const railZ0 = 4.15, railZ1 = 5.70;   // lined up with the worktop across the aisle
     solid(p1Seats, P.vinyl, seatDepth + 0.04, 0.09, railZ1 - railZ0, seatX, F + 0.045,
       (railZ0 + railZ1) / 2);                                                            // floor base rail
     [-1, 1].forEach(sd => box(p1Seats, P.plate, seatDepth + 0.04, 0.012, 0.06, seatX, F + 0.095,
@@ -759,20 +759,22 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       p1Seats.add(shell);
       seatShells.push(shell);
 
-      tube(shell, P.plate, 0.16, 0.05, 0, F + 0.12, 0);                                  // swivel plate
-      tube(shell, P.vinyl, 0.07, 0.22, 0, F + 0.25, 0);                                  // pedestal column
-      solid(shell, P.vinyl, 0.48, 0.10, seatDepth - 0.04, 0, F + 0.41, 0);               // seat frame
-      solid(shell, P.fabric, 0.50, 0.13, seatDepth, 0, F + 0.50, 0);                     // seat cushion
-      [-1, 1].forEach(o => box(shell, P.seam, 0.014, 0.012, seatDepth - 0.06, o * 0.14, F + 0.567, 0, false));
-      box(shell, P.vinyl, 0.50, 0.07, 0.08, 0, F + 0.47, -seatDepth / 2 + 0.02, false);  // front nosing
+      tube(shell, P.plate, 0.17, 0.045, 0, F + 0.11, 0);                                 // swivel plate
+      tube(shell, P.vinyl, 0.065, 0.20, 0, F + 0.23, 0);                                 // pedestal column
+      solid(shell, P.vinyl, 0.46, 0.08, seatDepth - 0.06, 0, F + 0.37, 0);               // seat frame
+      solid(shell, P.fabric, 0.50, 0.14, seatDepth, 0, F + 0.46, 0);                     // seat cushion
+      [-1, 1].forEach(o => box(shell, P.vinyl, 0.06, 0.09, seatDepth - 0.04, o * 0.22, F + 0.50, 0, false));
+      [-1, 1].forEach(o => box(shell, P.seam, 0.012, 0.012, seatDepth - 0.10, o * 0.11, F + 0.532, 0, false));
+      box(shell, P.vinyl, 0.50, 0.06, 0.07, 0, F + 0.43, -seatDepth / 2 + 0.02, false);  // front nosing
 
       const back = new THREE.Group();
-      back.position.set(0, F + 0.55, seatDepth / 2 - 0.05);
-      back.rotation.x = -0.13;
+      back.position.set(0, F + 0.55, seatDepth / 2 - 0.06);
+      back.rotation.x = -0.15;
       shell.add(back);
-      solid(back, P.vinyl, 0.50, 0.54, 0.13, 0, 0.26, 0.01);                             // back bolster
-      box(back, P.fabric, 0.38, 0.46, 0.05, 0, 0.26, -0.055, false);                     // light facing
-      [0.13, 0.27, 0.41].forEach(y => box(back, P.seam, 0.34, 0.012, 0.014, 0, y, -0.082, false));
+      solid(back, P.fabric, 0.40, 0.44, 0.09, 0, 0.23, -0.01);                           // back panel
+      [-1, 1].forEach(o => solid(back, P.vinyl, 0.06, 0.46, 0.14, o * 0.22, 0.24, 0.015));   // back bolsters
+      [0.12, 0.24, 0.36].forEach(y => box(back, P.seam, 0.34, 0.011, 0.012, 0, y, -0.058, false));
+      solid(back, P.vinyl, 0.28, 0.14, 0.11, 0, 0.55, 0.01);                             // headrest, gap beneath
     });
 
     const setFacing = (side: boolean) =>
