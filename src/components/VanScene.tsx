@@ -237,6 +237,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     setRequested: (on: boolean) => void;
     setDoorSwing: (on: boolean) => void;
     setProvision: (on: boolean) => void;
+    setSeatFacing: (side: boolean) => void;
     highlight: (p: Part | null) => void;
     addAt: (x: number, y: number) => void;
     moveAt: (id: string, x: number, y: number) => void;
@@ -663,7 +664,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       plate: std(0xd9dfe3, 0.34, 0.25),
       seam: std(0xb0b7bd, 0.85),
       vinyl: std(0x23282e, 0.5),
-      fabric: std(0xc9ccc8, 0.96),
+      fabric: std(0x343638, 0.90),
       wood: std(0xc9a470, 0.68),
       alu: std(0xc2c8cd, 0.36, 0.55),
       belt: std(0x3a4047, 0.7),
@@ -738,53 +739,106 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       ceilPanel.visible = camera.position.y < H;
     };
 
-    /* ---- RIGHT wall: passenger seating on swivel bases ----
-       The seats change facing rather than sliding fore and aft: forward, or
-       turned in to face the aisle and the workstation. Two shells, per the
-       double seat kit on the quote; back height and belt positions are not
-       established by the photos and are not drawn in.                      */
+    /* ---- RIGHT wall: one connected two-person bench, one shared swivel ---- */
     const p1Seats = new THREE.Group();
-    const seatDepth = 0.54;
-    const seatX = CARGO_W / 2 - seatDepth / 2 - 0.05;
-    const railZ0 = 4.15, railZ1 = 5.70;   // lined up with the worktop across the aisle
-    solid(p1Seats, P.vinyl, seatDepth + 0.04, 0.09, railZ1 - railZ0, seatX, F + 0.045,
-      (railZ0 + railZ1) / 2);                                                            // floor base rail
-    [-1, 1].forEach(sd => box(p1Seats, P.plate, seatDepth + 0.04, 0.012, 0.06, seatX, F + 0.095,
-      (railZ0 + railZ1) / 2 + sd * ((railZ1 - railZ0) / 2 - 0.05), false));
-
-    const seatShells: THREE.Group[] = [];
-    [-1, 1].forEach(sd => {
-      const shell = new THREE.Group();
-      shell.position.set(seatX, 0, (railZ0 + railZ1) / 2 + sd * 0.40);
-      p1Seats.add(shell);
-      seatShells.push(shell);
-
-      tube(shell, P.plate, 0.17, 0.045, 0, F + 0.11, 0);                                 // swivel plate
-      tube(shell, P.vinyl, 0.065, 0.20, 0, F + 0.23, 0);                                 // pedestal column
-      solid(shell, P.vinyl, 0.46, 0.08, seatDepth - 0.06, 0, F + 0.37, 0);               // seat frame
-      solid(shell, P.fabric, 0.50, 0.14, seatDepth, 0, F + 0.46, 0);                     // seat cushion
-      [-1, 1].forEach(o => box(shell, P.vinyl, 0.06, 0.09, seatDepth - 0.04, o * 0.22, F + 0.50, 0, false));
-      [-1, 1].forEach(o => box(shell, P.seam, 0.012, 0.012, seatDepth - 0.10, o * 0.11, F + 0.532, 0, false));
-      box(shell, P.vinyl, 0.50, 0.06, 0.07, 0, F + 0.43, -seatDepth / 2 + 0.02, false);  // front nosing
-
-      const back = new THREE.Group();
-      back.position.set(0, F + 0.55, seatDepth / 2 - 0.06);
-      back.rotation.x = -0.15;
-      shell.add(back);
-      solid(back, P.fabric, 0.40, 0.44, 0.09, 0, 0.23, -0.01);                           // back panel
-      [-1, 1].forEach(o => solid(back, P.vinyl, 0.06, 0.46, 0.14, o * 0.22, 0.24, 0.015));   // back bolsters
-      [0.12, 0.24, 0.36].forEach(y => box(back, P.seam, 0.34, 0.011, 0.012, 0, y, -0.058, false));
-      solid(back, P.vinyl, 0.28, 0.14, 0.11, 0, 0.55, 0.01);                             // headrest, gap beneath
+    const deskZ0 = 4.35, deskZ1 = Math.min(6.10, L - 0.10);
+    const deskCenterZ = (deskZ0 + deskZ1) / 2;
+    // One rigid bench follows two concentric curved guides around a wall-side
+    // rotation centre. Keeping that centre at the outside rear corner makes the
+    // whole turn stay inside the wall, with the aisle-facing back beside it.
+    const benchX = CARGO_W / 2 - 0.045;
+    const benchPivotZ = deskCenterZ - 0.50;
+    const benchOffsetX = -0.50, benchOffsetZ = -0.35;
+    const railWidth = 0.040, railHeight = 0.012;
+    const railMaterial = std(0x879196, 0.65, 0.35);
+    owned.push(railMaterial);
+    const guidePoints = [-0.30, 0.30].map(x => new THREE.Vector3(benchOffsetX + x, 0, benchOffsetZ));
+    const arcMargin = 0.065;
+    guidePoints.forEach((point, index) => {
+      const radius = Math.hypot(point.x, point.z);
+      // Shape XY maps to floor XZ with Z inverted by the -90-degree rotation.
+      // Its angular parameter therefore increases with the bench rotation.
+      const start = -Math.atan2(point.z, point.x) - arcMargin;
+      const end = start + Math.PI / 2 + 2 * arcMargin;
+      const profile = new THREE.Shape();
+      profile.absarc(0, 0, radius + railWidth / 2, start, end, false);
+      profile.lineTo((radius - railWidth / 2) * Math.cos(end), (radius - railWidth / 2) * Math.sin(end));
+      profile.absarc(0, 0, radius - railWidth / 2, end, start, true);
+      profile.closePath();
+      const rail = add(p1Seats, new THREE.ExtrudeGeometry(profile, {
+        depth: railHeight, bevelEnabled: false, curveSegments: 48,
+      }).rotateX(-Math.PI / 2), railMaterial, benchX, F + 0.002, benchPivotZ, false);
+      rail.name = `bench-guide-arc-${index}`;
+      rail.userData.radius = radius;
+      // Continuous recessed channel, rather than discrete holes or a sharp bend.
+      add(p1Seats, new THREE.RingGeometry(radius - 0.005, radius + 0.005, 96, 1,
+        start, end - start).rotateX(-Math.PI / 2), P.vinyl,
+        benchX, F + railHeight + 0.0025, benchPivotZ, false);
+      [start, end].forEach(angle => tube(p1Seats, P.vinyl, 0.022, 0.022,
+        benchX + radius * Math.cos(angle), F + 0.025,
+        benchPivotZ - radius * Math.sin(angle)));
     });
-
-    const setFacing = (side: boolean) =>
-      seatShells.forEach(shell => { shell.rotation.y = side ? Math.PI / 2 : 0; });
-    setFacing(seatSide);
+    const benchPivot = new THREE.Group();
+    benchPivot.position.set(benchX, 0, benchPivotZ);
+    p1Seats.add(benchPivot);
+    const seatBench = new THREE.Group();
+    seatBench.position.set(benchOffsetX, 0, benchOffsetZ);
+    benchPivot.add(seatBench);
+    solid(seatBench, P.vinyl, 0.94, 0.08, 0.48, 0, F + 0.36, 0);
+    solid(seatBench, P.vinyl, 0.94, 0.13, 0.54, 0, F + 0.43, 0); // continuous shared seat base
+    [-0.30, 0.30].forEach((x, index) => {
+      solid(seatBench, P.alu, 0.045, 0.30, 0.08, x, F + 0.19, 0);
+      const guide = new THREE.Group();
+      guide.name = `bench-guide-shoe-${index}`;
+      guide.position.set(x, 0, 0);
+      // The shoe's long axis is tangent to its own circular guide.
+      guide.rotation.y = Math.atan2(guidePoints[index].z, -guidePoints[index].x);
+      seatBench.add(guide);
+      solid(guide, P.plate, 0.036, 0.025, 0.10, 0, F + 0.034, 0);
+      [-0.025, 0.025].forEach(z => tube(guide, P.vinyl, 0.014, 0.018, 0, F + 0.021, z));
+    });
+    [-0.225, 0.225].forEach(x => {
+      const seat = new THREE.Group();
+      seat.position.x = x;
+      seatBench.add(seat);
+      solid(seat, P.fabric, 0.445, 0.12, 0.53, 0, F + 0.48, 0);
+      [-0.18, 0.18].forEach(dx => box(seat, P.vinyl, 0.045, 0.055, 0.47, dx, F + 0.535, 0, false));
+      const back = new THREE.Group();
+      back.position.set(0, F + 0.54, 0.22);
+      back.rotation.x = -0.10;
+      seat.add(back);
+      // Integrated, tapered head section follows the connected reference seat.
+      const profile = new THREE.Shape();
+      profile.moveTo(-0.21, 0);
+      profile.lineTo(-0.21, 0.36);
+      profile.quadraticCurveTo(-0.21, 0.50, -0.14, 0.64);
+      profile.quadraticCurveTo(-0.10, 0.71, 0, 0.71);
+      profile.quadraticCurveTo(0.10, 0.71, 0.14, 0.64);
+      profile.quadraticCurveTo(0.21, 0.50, 0.21, 0.36);
+      profile.lineTo(0.21, 0);
+      profile.closePath();
+      add(back, new THREE.ExtrudeGeometry(profile, { depth: 0.09, bevelEnabled: true,
+        bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 3, steps: 1 }), P.vinyl, 0, 0, -0.045);
+      [0.10, 0.25, 0.40].forEach(y => {
+        box(back, P.fabric, 0.32, 0.125, 0.025, 0, y, -0.064, false);
+        box(back, P.belt, 0.32, 0.008, 0.006, 0, y - 0.065, -0.079, false);
+      });
+      box(back, P.fabric, 0.27, 0.15, 0.025, 0, 0.59, -0.064, false);
+      box(back, P.belt, 0.043, 0.49, 0.012, 0.135, 0.35, -0.086, false);
+      solid(seat, P.plate, 0.045, 0.07, 0.02, 0.135, F + 0.55, 0.08, false);
+    });
+    // Only outer armrests; no gap or separate pedestal between the seats.
+    [-0.475, 0.475].forEach(x => {
+      solid(seatBench, P.vinyl, 0.05, 0.065, 0.32, x, F + 0.70, -0.02);
+      solid(seatBench, P.vinyl, 0.035, 0.16, 0.055, x, F + 0.60, 0.10);
+    });
+    let seatFacingTarget = seatSide ? Math.PI / 2 : 0;
+    benchPivot.rotation.y = seatFacingTarget;
     phaseOne.add(p1Seats); parts.p1Seats = p1Seats;
 
     /* ---- LEFT wall: workstation, monitor and drawer cabinets (not quoted) ---- */
     const p1Gap = new THREE.Group();
-    const deskZ0 = 4.05, deskZ1 = 5.80, deskX = -0.52, deskY = F + 0.76;
+    const deskX = -0.52, deskY = F + 0.76;
     ghostBox(p1Gap, 0.58, 0.045, deskZ1 - deskZ0, deskX, deskY, (deskZ0 + deskZ1) / 2);            // wooden worktop
     ghostBox(p1Gap, 0.60, 0.030, 0.05, deskX, deskY + 0.038, deskZ0 + 0.03);                       // upstand at the wall end
     ghostBox(p1Gap, 0.56, 0.70, 0.035, deskX, F + 0.39, deskZ1 - 0.02);                            // closed end panel, rear
@@ -795,8 +849,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       box(p1Gap, P.notQuoted, 0.014, 0.095, 0.82, -0.292, F + 0.08 + i * 0.118, 3.55, false);
       box(p1Gap, P.seam, 0.010, 0.020, 0.18, -0.286, F + 0.08 + i * 0.118, 3.55, false);           // recessed handle
     }
-    ghostBox(p1Gap, 0.05, 0.08, 0.30, -0.80, F + 1.22, 4.95);                                      // monitor arm
-    ghostBox(p1Gap, 0.035, 0.52, 0.92, -0.755, F + 1.26, 4.95);                                    // wall monitor
+    ghostBox(p1Gap, 0.05, 0.08, 0.30, -0.80, F + 1.22, deskCenterZ + 0.025);                                      // monitor arm
+    ghostBox(p1Gap, 0.035, 0.52, 0.92, -0.755, F + 1.26, deskCenterZ + 0.025);                                    // wall monitor
     phaseOne.add(p1Gap);
 
     /* ---- quoted power, tucked under the worktop ---- */
@@ -807,6 +861,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     ghostBox(p1Power, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.85);                                      // battery: on neither quote
     strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.85), V3(pwX - 0.04, F + 0.24, 5.50), 0.026);
     solid(p1Power, M.dark, 0.06, 0.06, 0.06, pwX - 0.04, F + 0.24, 5.18, false);                   // 250 A fuse holder
+    p1Power.position.z = deskCenterZ - 4.925;
     phaseOne.add(p1Power); parts.p1Power = p1Power;
 
     /* ---- fold-up jump seat between the cab seats: a later option, not quoted.
@@ -1033,6 +1088,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
     const outline = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(0xb3a369));
     outline.visible = false;
+    let highlightedPart: THREE.Object3D | null = null;
     scene.add(outline);
 
     /* -------------------------------- views ------------------------------- */
@@ -1172,6 +1228,13 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
         if (camera.position.distanceToSquared(wantPos) < 2e-5 &&
             controls.target.distanceToSquared(wantTarget) < 2e-5) flying = false;
       }
+      const seatTurn = seatFacingTarget - benchPivot.rotation.y;
+      const seatsRotating = Math.abs(seatTurn) > 0.0005;
+      benchPivot.rotation.y = seatsRotating ? benchPivot.rotation.y + seatTurn * 0.16 : seatFacingTarget;
+      if (seatsRotating) {
+        bumpShadows();
+        if (outline.visible && highlightedPart === p1Seats) outline.box.setFromObject(p1Seats).expandByScalar(0.06);
+      }
       const moved = controls.update();
 
       const o = M.paint.opacity + (wantShell - M.paint.opacity) * 0.12;
@@ -1183,7 +1246,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       cutaway();
       renderer.render(scene, camera);
       project();
-      if (flying || moved || Math.abs(o - wantShell) > 0.001) wake();
+      if (flying || seatsRotating || moved || Math.abs(o - wantShell) > 0.001) wake();
     };
     const wake = () => { if (!raf && !document.hidden) raf = requestAnimationFrame(tick); };
     const resize = () => {
@@ -1236,8 +1299,10 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       setRequested: on => { requested.visible = on && !pr; bumpShadows(); wake(); },
       setDoorSwing: on => { doorSwing.visible = on; wake(); },
       setProvision: on => { provision.visible = on; bumpShadows(); wake(); },
+      setSeatFacing: side => { seatFacingTarget = side ? Math.PI / 2 : 0; wake(); },
       highlight: p => {
         const target = p ? parts[p] : null;
+        highlightedPart = target ?? null;
         if (!target || !target.visible) outline.visible = false;
         else { outline.box.setFromObject(target).expandByScalar(0.06); outline.visible = true; }
         wake();
@@ -1267,7 +1332,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       renderer.dispose();
       api.current = null;
     };
-  }, [body, layout, phase, seatSide, gantryLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [body, layout, phase, gantryLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { api.current?.setView(view); }, [view]);
   useEffect(() => { api.current?.setLimit(showLimit); }, [showLimit]);
@@ -1275,6 +1340,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
   useEffect(() => { api.current?.setRequested(showRequested); }, [showRequested]);
   useEffect(() => { api.current?.setDoorSwing(showDoorSwing); }, [showDoorSwing]);
   useEffect(() => { api.current?.setProvision(showProvision); }, [showProvision]);
+  useEffect(() => { api.current?.setSeatFacing(seatSide); }, [seatSide]);
   useEffect(() => { api.current?.highlight(selected); }, [selected, view, showRearFrame]);
   useEffect(() => { api.current?.redraw(); }, [annotations]);
 

@@ -31,7 +31,7 @@ const detail: Record<Part, DeviceSpec> = {
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
   p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
   p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
-  p1Seats: { title: 'Passenger seating, right wall', items: ['Tim Van double captain seat kit, two shells', 'Swivel bases: forward or turned in to the aisle', 'DOT-approved three-point belts', 'Floor base rail and reinforcement'], status: 'Option B only, $4,125 installed. Along the right wall aft of the side-door aperture, on swivel bases: the seats change facing rather than sliding fore and aft. Use the Seats switch beside the model to compare both. Back height and belt positions are not established by the photos and are not drawn in; settle them with Patrick at the drop-off meeting.' },
+  p1Seats: { title: 'Connected two-person bench', items: ['Tim Van connected two-person seat, shared frame', 'One rigid frame: both seats turn together through 90 degrees', 'DOT-approved three-point belts', 'Two curved floor guides following the bench rotation (concept)'], status: 'Option B only, $4,125 installed. The reference shows two joined seats on one frame. Use the Bench rotation switch to turn the complete pair by 90 degrees: across the van facing forward, or along the van facing the aisle. Both seats and their shared frame turn together, with two guide shoes following concentric curved floor rails. The guide mechanism is a concept layout.' },
   p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
@@ -205,10 +205,10 @@ export default function Home() {
             <button type="button" className={first ? 'active' : ''} onClick={() => { setPhase('phase1'); setPanel('phase1'); setView('interior'); }}>Phase 1</button>
             <button type="button" className={!first ? 'active' : ''} onClick={() => setPhase('full')}>Full concept</button>
           </div>
-          {first && <div className="variant" role="group" aria-label="Seat facing">
-            <span>Seats</span>
-            <button type="button" className={seatSide ? 'active' : ''} onClick={() => { setSeatSide(true); setView('interior'); }}>Face the aisle</button>
-            <button type="button" className={!seatSide ? 'active' : ''} onClick={() => { setSeatSide(false); setView('interior'); }}>Face forward</button>
+          {first && <div className="variant" role="group" aria-label="Connected bench rotation">
+            <span>Bench rotation</span>
+            <button type="button" className={seatSide ? 'active' : ''} aria-pressed={seatSide} onClick={() => { setSeatSide(true); if (view !== 'interior' && view !== 'plan') setView('plan'); }}>Both face the aisle</button>
+            <button type="button" className={!seatSide ? 'active' : ''} aria-pressed={!seatSide} onClick={() => { setSeatSide(false); if (view !== 'interior' && view !== 'plan') setView('plan'); }}>Both face forward</button>
           </div>}
           {!first && <div className="variant" role="group" aria-label="Sensor architecture">
             <span>Layout</span>
