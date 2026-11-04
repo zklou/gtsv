@@ -741,7 +741,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
     /* ---- RIGHT wall: one connected two-person bench, one shared swivel ---- */
     const p1Seats = new THREE.Group();
-    const deskZ0 = 4.35, deskZ1 = Math.min(6.10, L - 0.10);
+    const deskZ0 = 4.60, deskZ1 = Math.min(6.35, L - 0.10);
     const deskCenterZ = (deskZ0 + deskZ1) / 2;
     // One rigid bench follows two concentric curved guides around a wall-side
     // rotation centre. Keeping that centre at the outside rear corner makes the
