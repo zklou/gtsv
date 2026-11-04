@@ -31,7 +31,7 @@ const detail: Record<Part, DeviceSpec> = {
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
   p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
   p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
-  p1Seats: { title: 'Two captain seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: 'Option B only, $4,125 installed. Shown just aft of the cab, which is where a double kit mounts. Crew of four including driver and front passenger.' },
+  p1Seats: { title: 'Passenger seating, right wall', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Floor mounting and reinforcement'], status: 'Option B only, $4,125 installed. Drawn the way the reference photos place it: longitudinal along the right wall, seating surface facing the centre aisle, aft of the side-door aperture. The photo cuts off the backrest, so seat count, back height and belt positions are not drawn in and still need to be fixed with Patrick.' },
   p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
@@ -109,7 +109,7 @@ const gtOwes = [
 
 const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
 const showPrices = params?.get('quote') === '1';
-const startView = (['exterior', 'roof', 'interior', 'rear'] as View[])
+const startView = (['exterior', 'roof', 'plan', 'interior', 'rear'] as View[])
   .find(v => v === params?.get('view')) ?? 'exterior';
 const startBody = (['extended', 'long'] as Body[])
   .find(v => v === params?.get('body')) ?? 'extended';
@@ -117,7 +117,7 @@ const savedPoints = (): Annotation[] => {
   try {
     const shared = new URLSearchParams(window.location.search).get('points');
     const value = JSON.parse(shared ?? localStorage.getItem('gtsv-custom-points') ?? '[]');
-    return Array.isArray(value) ? value.filter(p => typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.point) && p.point.length === 3 && p.point.every((n: unknown) => typeof n === 'number') && ['exterior', 'roof', 'interior', 'rear'].includes(p.view)) : [];
+    return Array.isArray(value) ? value.filter(p => typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.point) && p.point.length === 3 && p.point.every((n: unknown) => typeof n === 'number') && ['exterior', 'roof', 'plan', 'interior', 'rear'].includes(p.view)) : [];
   } catch { return []; }
 };
 
@@ -192,7 +192,7 @@ export default function Home() {
             ? <><span>Phase 1 top</span><strong>≈ {metres(heights.ac)}</strong><small>roof A/C is the highest point</small></>
             : <><span>Scenario top</span><strong>≈ {metres(layout === 'sheet' ? heights.sheet : gantryLevel === 'roof' ? heights.pathrunner : heights.lowered)}</strong><small>2.60 m target exceeded</small></>}</div>
           <div className="view-controls" role="group" aria-label="Camera view">
-            {([['exterior', '3D exterior'], ['roof', 'Roof'], ['interior', 'Interior'], ['rear', 'Rear sensors']] as [View, string][]).map(([key, name]) =>
+            {([['exterior', '3D exterior'], ['roof', 'Roof'], ['plan', 'Plan'], ['interior', 'Interior'], ['rear', 'Rear sensors']] as [View, string][]).map(([key, name]) =>
               <button key={key} type="button" className={view === key ? 'active' : ''} onClick={() => { setView(key); if (key === 'rear') setRearFrame(true); }}>{name}</button>
             )}
           </div>

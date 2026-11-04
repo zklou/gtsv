@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-export type View = 'exterior' | 'roof' | 'interior' | 'rear';
+export type View = 'exterior' | 'roof' | 'plan' | 'interior' | 'rear';
 export type Body = 'extended' | 'long';
 export type Layout = 'sheet' | 'pathrunner' | 'hybrid';
 export type GantryLevel = 'roof' | 'lowered';
@@ -266,7 +266,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     const perspectiveCamera = new THREE.PerspectiveCamera(33, 1, 0.05, 120);
     const roofCamera = new THREE.OrthographicCamera(-4.3, 4.3, 2.5, -2.5, 0.05, 120);
     roofCamera.up.set(1, 0, 0); // front at left, rear at right in the roof plan
-    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = view === 'roof' ? roofCamera : perspectiveCamera;
+    const flat = (v: View) => v === 'roof' || v === 'plan';
+    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = flat(view) ? roofCamera : perspectiveCamera;
     const controls = new OrbitControls(camera, cv);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -655,9 +656,23 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       belt: std(0x3a4047, 0.7),
       lampFace: new THREE.MeshStandardMaterial({ color: 0xfaf3df, roughness: 0.3, emissive: 0xffeec2, emissiveIntensity: 0.7 }),
       plate: std(0xd7dde1, 0.38, 0.2),
-      notQuoted: new THREE.MeshStandardMaterial({ color: 0x8d99a3, roughness: 0.7, transparent: true, opacity: 0.17 }),
+      notQuoted: new THREE.MeshStandardMaterial({ color: 0x8d99a3, roughness: 0.7, transparent: true, opacity: 0.09, depthWrite: false }),
+      edge: new THREE.LineBasicMaterial({ color: 0x6d7b86, transparent: true, opacity: 0.75 }),
+      seam: std(0xb3b9bf, 0.8),
+      cushion: std(0xb9bdbb, 0.95),
+      edgeFace: std(0x7b8893, 0.6),
     };
     Object.values(P).forEach(m => owned.push(m));
+
+    /* a proposed volume: barely-there fill plus an outline, so it cannot be
+       mistaken for quoted hardware */
+    const ghostBox = (p: THREE.Object3D, w: number, h: number, d: number, x: number, y: number, z: number) => {
+      const mesh = box(p, P.notQuoted, w, h, d, x, y, z, false);
+      const line = new THREE.LineSegments(keep(new THREE.EdgesGeometry(mesh.geometry)), P.edge);
+      line.position.set(x, y, z);
+      p.add(line);
+      return mesh;
+    };
 
     const linerX = CARGO_W / 2 - 0.012;
     const zMid = zBulk + b.cargo / 2;
@@ -674,8 +689,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     panel(linerPos, 1, 4.12, zLinerBack);                    // the side door aperture
     ([[linerNeg, -1], [linerPos, 1]] as [THREE.Group, number][]).forEach(([g, sd]) => {
       box(g, P.plate, 0.030, 0.070, dLiner, sd * linerX, F + 1.50, zMid, false);                 // diamond-plate trim rail
-      box(p1Liner, P.liner, (CARGO_W - WHEEL_W) / 2 + 0.03, 0.34, 1.03,
-        sd * (CARGO_W + WHEEL_W) / 4, F + 0.17, REAR_AXLE, false);                              // wheel covers
+    });
+    ([[linerNeg, -1], [linerPos, 1]] as [THREE.Group, number][]).forEach(([g, sd]) => {
+      [3.05, 4.40, 5.70].forEach(z => box(g, P.seam, 0.026, 1.40, 0.012, sd * linerX, F + 0.74, z, false));
     });
     [-0.40, 0.40].forEach(x => box(linerRear, P.liner, 0.74, 1.46, 0.020, x, F + 0.77, L - 0.05, false));
     phaseOne.add(p1Liner); parts.p1Liner = p1Liner;
@@ -690,36 +706,37 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     /* the liner is the cutaway: whichever surface the camera sits behind steps aside */
     const cutaway = () => {
       if (!p1) return;
+      const planView = currentView === 'plan';
+      phaseOneRoof.visible = !planView;          // the plan reads the floor, not the roof
+      acRear.visible = !planView;
       linerPos.visible = camera.position.x < 0.25;
       linerNeg.visible = camera.position.x > -0.25;
       linerRear.visible = camera.position.z < L;
       ceilPanel.visible = camera.position.y < H;
     };
 
-    /* Tim Van double captain seat kit: pedestal legs, integrated three-point belts */
+    /* Right wall: passenger bench, longitudinal, seating surface facing the
+       centre aisle. The photo cuts the backrest off, so seat count, back
+       height and belt positions are deliberately not drawn in.              */
     const p1Seats = new THREE.Group();
-    const seatZ = zBulk + 0.72;
-    [-1, 1].forEach(sd => {
-      const sx = sd * 0.27;
-      [-0.15, 0.15].forEach(o => box(p1Seats, M.dark, 0.06, 0.30, 0.44, sx + o, F + 0.15, seatZ));
-      box(p1Seats, M.dark, 0.52, 0.05, 0.48, sx, F + 0.31, seatZ, false);
-      box(p1Seats, P.vinyl, 0.52, 0.15, 0.52, sx, F + 0.38, seatZ);
-      box(p1Seats, P.vinyl, 0.52, 0.66, 0.15, sx, F + 0.78, seatZ + 0.265);
-      [-0.235, 0.235].forEach(o => box(p1Seats, P.vinyl, 0.06, 0.60, 0.13, sx + o, F + 0.79, seatZ + 0.205));
-      box(p1Seats, M.dark, 0.09, 0.10, 0.36, sx + sd * 0.30, F + 0.62, seatZ + 0.03);
-      const belt = box(p1Seats, P.belt, 0.055, 0.56, 0.014, sx - sd * 0.06, F + 0.80, seatZ + 0.185, false);
-      belt.rotation.z = sd * 0.22;
-    });
+    const benchZ = 5.75, benchLen = 1.45, benchDepth = 0.55;
+    const benchX = CARGO_W / 2 - benchDepth / 2 - 0.03;
+    box(p1Seats, M.dark, benchDepth, 0.40, benchLen, benchX, F + 0.21, benchZ);                    // base / understructure
+    box(p1Seats, M.alu, benchDepth - 0.06, 0.03, benchLen - 0.06, benchX, F + 0.42, benchZ, false);
+    box(p1Seats, P.cushion, benchDepth, 0.13, benchLen, benchX, F + 0.47, benchZ);                 // seat cushion
+    box(p1Seats, P.cushion, 0.14, 0.44, benchLen, CARGO_W / 2 - 0.09, F + 0.74, benchZ);           // back cushion on the wall
+    [-1, 1].forEach(sd => box(p1Seats, M.dark, benchDepth, 0.46, 0.05,
+      benchX, F + 0.25, benchZ + sd * (benchLen / 2 - 0.02), false));                              // end panels
     phaseOne.add(p1Seats); parts.p1Seats = p1Seats;
 
     /* 5000 W inverter and the 0-gauge kit, with the battery the quote does not carry */
     const p1Power = new THREE.Group();
     const pwX = -0.70;
-    box(p1Power, M.rackFace, 0.42, 0.22, 0.28, pwX, F + 0.13, 5.62);                           // 5000 W inverter, under the worktop
-    [-0.07, 0.07].forEach(o => box(p1Power, M.dark, 0.28, 0.03, 0.02, pwX, F + 0.13 + o, 5.48, false));
-    box(p1Power, P.notQuoted, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.95);                          // battery: on neither quote
-    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.95), V3(pwX - 0.04, F + 0.24, 5.62), 0.028);
-    box(p1Power, M.dark, 0.05, 0.05, 0.05, pwX - 0.04, F + 0.24, 5.30, false);                 // 250 A fuse holder
+    box(p1Power, M.rackFace, 0.42, 0.22, 0.28, pwX, F + 0.13, 5.00);                           // 5000 W inverter, under the worktop
+    [-0.07, 0.07].forEach(o => box(p1Power, M.dark, 0.28, 0.03, 0.02, pwX, F + 0.13 + o, 4.86, false));
+    ghostBox(p1Power, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.35);                                 // battery: on neither quote
+    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.35), V3(pwX - 0.04, F + 0.24, 5.00), 0.028);
+    box(p1Power, M.dark, 0.05, 0.05, 0.05, pwX - 0.04, F + 0.24, 4.68, false);                 // 250 A fuse holder
     phaseOne.add(p1Power); parts.p1Power = p1Power;
 
     /* Ghosted: discussed on 21 Oct, absent from both quotes. Positions follow
@@ -727,15 +744,17 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
        wheel arch, drawer cabinets forward of it, bench aft on the passenger
        wall behind the side-door aperture.                                   */
     const p1Gap = new THREE.Group();
-    const deskZ0 = 4.30, deskZ1 = 5.95, deskX = -0.52;
-    box(p1Gap, P.notQuoted, 0.58, 0.05, deskZ1 - deskZ0, deskX, F + 0.76, (deskZ0 + deskZ1) / 2);   // butcher-block worktop
-    box(p1Gap, P.notQuoted, 0.56, 0.72, 0.04, deskX, F + 0.38, deskZ1 - 0.02, false);               // closed end panel, rear
-    box(p1Gap, P.notQuoted, 0.56, 0.04, 0.52, deskX, F + 0.33, deskZ1 - 0.30, false);               // shelf under the rear end
-    box(p1Gap, P.notQuoted, 0.52, 0.74, 0.82, -0.55, F + 0.37, 3.85);                               // drawer cabinets, forward
-    box(p1Gap, P.notQuoted, 0.03, 0.46, 0.90, -(CARGO_W / 2 - 0.05), F + 1.22, 5.10, false);        // wall screen over the worktop
-    box(p1Gap, P.notQuoted, 0.60, 0.42, 1.45, 0.52, F + 0.21, 5.80);                                // bench box, aft passenger side
-    box(p1Gap, P.notQuoted, 0.60, 0.10, 1.45, 0.52, F + 0.47, 5.80);                                // seat cushion
-    box(p1Gap, P.notQuoted, 0.10, 0.44, 1.45, 0.80, F + 0.72, 5.80, false);                         // back cushion on the wall
+    const deskZ0 = 3.55, deskZ1 = 5.30, deskX = -0.52;
+    ghostBox(p1Gap, 0.58, 0.05, deskZ1 - deskZ0, deskX, F + 0.76, (deskZ0 + deskZ1) / 2);           // butcher-block worktop
+    [deskZ0 + 0.03, deskZ1 - 0.03].forEach(z => ghostBox(p1Gap, 0.56, 0.72, 0.04, deskX, F + 0.38, z));  // closed end panels
+    ghostBox(p1Gap, 0.08, 0.72, deskZ1 - deskZ0, -0.80, F + 0.38, (deskZ0 + deskZ1) / 2);           // wall-side support rail
+    ghostBox(p1Gap, 0.52, 0.74, 0.88, -0.55, F + 0.37, 3.05);                                       // drawer cabinets, behind the cab
+    for (let i = 0; i < 6; i++) {                                                                   // drawer faces, as in the photo
+      box(p1Gap, P.notQuoted, 0.014, 0.095, 0.82, -0.292, F + 0.08 + i * 0.118, 3.05, false);
+      box(p1Gap, P.edgeFace, 0.010, 0.022, 0.20, -0.286, F + 0.08 + i * 0.118, 3.05, false);
+    }
+    ghostBox(p1Gap, 0.03, 0.46, 0.90, -(CARGO_W / 2 - 0.05), F + 1.22, 4.40);                       // wall monitor over the worktop
+
     phaseOne.add(p1Gap);
 
     /* Roof: only the A/C is phase one; the rear roof is held for phase two */
@@ -961,6 +980,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     const VIEWS: Record<View, { pos: THREE.Vector3; target: THREE.Vector3; inside: boolean; shell: number }> = {
       exterior: { pos: new THREE.Vector3(8.3, 4.5, L + 5.8), target: new THREE.Vector3(0, 1.28, L * 0.54), inside: false, shell: 1 },
       roof: { pos: new THREE.Vector3(0, 12, L * 0.50), target: new THREE.Vector3(0, 1.55, L * 0.50), inside: false, shell: 1 },
+      plan: { pos: new THREE.Vector3(0, 12, L * 0.50), target: new THREE.Vector3(0, 1.55, L * 0.50), inside: true, shell: 0.05 },
       interior: { pos: new THREE.Vector3(7.0, 3.5, L * 1.14), target: new THREE.Vector3(0, 1.30, L * 0.66), inside: true, shell: 0.07 },
       rear: { pos: new THREE.Vector3(5.6, 3.0, L + 6.4), target: new THREE.Vector3(0, 1.55, L * 0.82), inside: false, shell: 1 },
     };
@@ -968,8 +988,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     fade.forEach(m => { m.transparent = true; });
 
     let currentView: View = view;
-    grid.visible = view !== 'roof';
-    shadowPlane.visible = view !== 'roof';
+    grid.visible = !flat(view);
+    shadowPlane.visible = !flat(view);
     let wantShell = VIEWS[view].shell;
     const wantPos = VIEWS[view].pos.clone();
     const wantTarget = VIEWS[view].target.clone();
@@ -1136,7 +1156,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
         currentView = v;
         grid.visible = v !== 'roof';
         shadowPlane.visible = v !== 'roof';
-        const nextCamera = v === 'roof' ? roofCamera : perspectiveCamera;
+        const nextCamera = flat(v) ? roofCamera : perspectiveCamera;
         if (camera !== nextCamera) {
           camera = nextCamera;
           controls.object = camera;
