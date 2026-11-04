@@ -698,11 +698,11 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
     /* Tim Van double captain seat kit: pedestal legs, integrated three-point belts */
     const p1Seats = new THREE.Group();
-    const seatZ = zBulk + 0.78;
+    const seatZ = zBulk + 0.72;
     [-1, 1].forEach(sd => {
-      const sx = sd * 0.42;
-      [-0.16, 0.16].forEach(o => box(p1Seats, M.dark, 0.07, 0.30, 0.42, sx + o, F + 0.15, seatZ));
-      box(p1Seats, M.dark, 0.50, 0.05, 0.46, sx, F + 0.31, seatZ, false);
+      const sx = sd * 0.27;
+      [-0.15, 0.15].forEach(o => box(p1Seats, M.dark, 0.06, 0.30, 0.44, sx + o, F + 0.15, seatZ));
+      box(p1Seats, M.dark, 0.52, 0.05, 0.48, sx, F + 0.31, seatZ, false);
       box(p1Seats, P.vinyl, 0.52, 0.15, 0.52, sx, F + 0.38, seatZ);
       box(p1Seats, P.vinyl, 0.52, 0.66, 0.15, sx, F + 0.78, seatZ + 0.265);
       [-0.235, 0.235].forEach(o => box(p1Seats, P.vinyl, 0.06, 0.60, 0.13, sx + o, F + 0.79, seatZ + 0.205));
@@ -715,19 +715,27 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     /* 5000 W inverter and the 0-gauge kit, with the battery the quote does not carry */
     const p1Power = new THREE.Group();
     const pwX = -0.70;
-    box(p1Power, M.rackFace, 0.44, 0.22, 0.28, pwX, F + 0.13, L - 0.75);
-    [-0.07, 0.07].forEach(o => box(p1Power, M.dark, 0.30, 0.03, 0.02, pwX, F + 0.13 + o, L - 0.89, false));
-    box(p1Power, P.notQuoted, 0.36, 0.28, 0.32, pwX, F + 0.16, L - 0.28);                      // battery: not on either quote
-    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, L - 0.28), V3(pwX - 0.04, F + 0.24, L - 0.75), 0.028);
-    box(p1Power, M.dark, 0.05, 0.05, 0.05, pwX - 0.04, F + 0.24, L - 0.50, false);             // 250 A fuse holder
+    box(p1Power, M.rackFace, 0.42, 0.22, 0.28, pwX, F + 0.13, 5.62);                           // 5000 W inverter, under the worktop
+    [-0.07, 0.07].forEach(o => box(p1Power, M.dark, 0.28, 0.03, 0.02, pwX, F + 0.13 + o, 5.48, false));
+    box(p1Power, P.notQuoted, 0.36, 0.28, 0.32, pwX, F + 0.16, 4.95);                          // battery: on neither quote
+    strut(p1Power, M.dark, V3(pwX - 0.04, F + 0.24, 4.95), V3(pwX - 0.04, F + 0.24, 5.62), 0.028);
+    box(p1Power, M.dark, 0.05, 0.05, 0.05, pwX - 0.04, F + 0.24, 5.30, false);                 // 250 A fuse holder
     phaseOne.add(p1Power); parts.p1Power = p1Power;
 
-    /* Ghosted: in the 21 Oct scope, absent from both quotes */
+    /* Ghosted: discussed on 21 Oct, absent from both quotes. Positions follow
+       the reference build — worktop on the driver wall straddling the rear
+       wheel arch, drawer cabinets forward of it, bench aft on the passenger
+       wall behind the side-door aperture.                                   */
     const p1Gap = new THREE.Group();
-    box(p1Gap, P.notQuoted, 0.58, 0.05, 1.45, -0.52, F + 0.76, 4.75);     // worktop over the wheel arch
-    box(p1Gap, P.notQuoted, 0.04, 0.74, 0.60, -0.79, F + 0.39, 4.20, false);
-    box(p1Gap, P.notQuoted, 0.52, 0.74, 0.60, -0.55, F + 0.37, 3.90);     // drawer cabinets, forward of the worktop
-    box(p1Gap, P.notQuoted, 0.56, 0.36, 1.25, 0.52, F + 0.50, 4.75);      // bench over the passenger arch
+    const deskZ0 = 4.30, deskZ1 = 5.95, deskX = -0.52;
+    box(p1Gap, P.notQuoted, 0.58, 0.05, deskZ1 - deskZ0, deskX, F + 0.76, (deskZ0 + deskZ1) / 2);   // butcher-block worktop
+    box(p1Gap, P.notQuoted, 0.56, 0.72, 0.04, deskX, F + 0.38, deskZ1 - 0.02, false);               // closed end panel, rear
+    box(p1Gap, P.notQuoted, 0.56, 0.04, 0.52, deskX, F + 0.33, deskZ1 - 0.30, false);               // shelf under the rear end
+    box(p1Gap, P.notQuoted, 0.52, 0.74, 0.82, -0.55, F + 0.37, 3.85);                               // drawer cabinets, forward
+    box(p1Gap, P.notQuoted, 0.03, 0.46, 0.90, -(CARGO_W / 2 - 0.05), F + 1.22, 5.10, false);        // wall screen over the worktop
+    box(p1Gap, P.notQuoted, 0.60, 0.42, 1.45, 0.52, F + 0.21, 5.80);                                // bench box, aft passenger side
+    box(p1Gap, P.notQuoted, 0.60, 0.10, 1.45, 0.52, F + 0.47, 5.80);                                // seat cushion
+    box(p1Gap, P.notQuoted, 0.10, 0.44, 1.45, 0.80, F + 0.72, 5.80, false);                         // back cushion on the wall
     phaseOne.add(p1Gap);
 
     /* Roof: only the A/C is phase one; the rear roof is held for phase two */
