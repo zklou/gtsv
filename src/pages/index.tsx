@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import VanScene, { heightCases, tags, type Annotation, type Body, type GantryLevel, type Layout, type Part, type View } from '@/components/VanScene';
+import VanScene, { heightCases, tags, type Annotation, type Body, type GantryLevel, type Layout, type Part, type Phase, type View } from '@/components/VanScene';
 import './index.css';
 
 type DeviceSpec = { title: string; items: string[]; status?: string };
@@ -11,11 +11,11 @@ const detail: Record<Part, DeviceSpec> = {
   gnss: { title: 'GPS / IMU', items: ['GPS / IMU set', 'Fixed mount on the sensor frame'], status: 'Receiver, antenna and IMU models TBD.' },
   pass: { title: 'Rear cable entries', items: ['Sealed rear roof cable entries × 2', 'Cable runs from both entries to the rear sensor carrier'], status: 'Two separate entries follow the PathRunner reference photo. Exact routing and roof cutouts TBD.' },
   frontCams: { title: 'Three forward cameras', items: ['Forward-facing cameras × 3', 'Low-profile roof rail and mounts'], status: 'Your correction: the front roof object is three cameras, not the A/C. Models and lens choice TBD.' },
-  acRear: { title: 'Auxiliary roof A/C (later)', items: ['Low-profile roof A/C × 1', 'Cabin duct and roof opening'], status: 'Fitted after the sensing package, on the rear third of the roof. Unit model and dimensions TBD.' },
-  seats: { title: 'Crew seats', items: ['New forward-facing belted seats × 2', 'Phone mounts × 2', 'Seat and floor reinforcement'], status: 'Seat model and certification TBD.' },
+  acRear: { title: 'Auxiliary roof A/C', items: ['Outequippro RV air conditioner, 12 V', 'Roof opening and cabin duct', 'Installation labor, 8 hr'], status: 'Quoted at $1,200 for the unit. Position has to be fixed in the drop-off strategy meeting so it leaves the rear roof clear for the phase-two carrier.' },
+  seats: { title: 'Crew seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: 'Quoted on option B at $4,125 installed. Crew of four including driver and front passenger; a fifth jump seat was raised on 21 October as a later option.' },
   desk: { title: 'Operator workstation', items: ['Industrial tower PC × 1', '24 in 1920 × 1080 monitor × 1 with VESA arm', 'Removable 2 TB NVMe drives × 2', '120 V outlets × 4; USB-C ports × 4', 'Adjustable LED work lights × 2'], status: 'Desk and mounting dimensions TBD.' },
   rack: { title: 'Equipment rack / storage', items: ['NOTE: rear doors are blocked by the sensor frame, so this must load through the side door','Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Rack size and inventory TBD. It currently sits aft of the side door aperture (which ends ~4.06 m), so either the rack moves forward or it has to be built up in place.' },
-  power: { title: 'Independent power', items: ['Auxiliary battery bank', 'Vehicle DC-DC charger', '2000 W pure sine inverter', 'Separate UPS for the host PC'], status: 'Battery size to be set for the sheet’s 2-hour engine-off target.' },
+  power: { title: 'Independent power', items: ['Auxiliary battery bank', 'Vehicle DC-DC charger', 'Pure sine inverter — quoted at 5000 W', 'Separate UPS for the host PC'], status: 'Only the inverter and its cable kit are quoted. The battery bank, the charger and the UPS are not, so the 2-hour engine-off target on the sheet is unfunded as things stand.' },
   rqLidar: { title: 'Colour LiDAR', items: ['Colour LiDAR — model and quantity TBD'], status: 'Handwritten addition on sheet 03; whether it replaces an existing unit is undecided.' },
   rqGnss: { title: 'RTK / PPK GPS', items: ['RTK / PPK-capable GNSS receiver — model TBD'], status: 'Handwritten “very good GPS” / “RTK / PPK” on sheet 03.' },
   rqCamera: { title: 'High-quality camera', items: ['High-quality camera — model and quantity TBD'], status: 'Handwritten addition on sheet 03.' },
@@ -29,6 +29,10 @@ const detail: Record<Part, DeviceSpec> = {
   pgMast: { title: 'Elevated sensor housings', items: ['Upper sensor housings × 2', 'Center sensor / camera head'], status: 'The photo shows two large boxes above the roof; their instrument identities are unverified.' },
   pgPavement: { title: 'Pavement sensor bar', items: ['Low rear crossbar', 'Downward-looking pavement sensors — models TBD'], status: 'PathRunner reference option; not specified on our sheet.' },
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
+  p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
+  p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
+  p1Seats: { title: 'Two captain seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: 'Option B only, $4,125 installed. Shown just aft of the cab, which is where a double kit mounts. Crew of four including driver and front passenger.' },
+  p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
 
@@ -127,6 +131,7 @@ export default function Home() {
   const [doorSwing, setDoorSwing] = useState(false);
   const [provision, setProvision] = useState(true);
   const [layout, setLayout] = useState<Layout>('sheet');
+  const [phase, setPhase] = useState<Phase>('phase1');
   const [gantryLevel, setGantryLevel] = useState<GantryLevel>('roof');
   const [panel, setPanel] = useState<'phase1' | 'layout' | 'dimensions' | 'sources'>('phase1');
   const [annotations, setAnnotations] = useState<Annotation[]>(savedPoints);
@@ -135,6 +140,7 @@ export default function Home() {
   const [copiedPoints, setCopiedPoints] = useState(false);
   useEffect(() => { setCopiedPoints(false); try { localStorage.setItem('gtsv-custom-points', JSON.stringify(annotations)); } catch { /* browser storage may be disabled */ } }, [annotations]);
   const heights = heightCases(body);
+  const first = phase === 'phase1';
   const metres = (v: number) => `${v.toFixed(2)} m`;
   const money = (v: number) => showPrices ? `$${v.toLocaleString('en-US')}` : '$ — — —';
   const detailFor = (p: Part) => (layout === 'pathrunner' && pathrunnerDetail[p]) || detail[p];
@@ -179,10 +185,12 @@ export default function Home() {
     <main className="workspace">
       <section className="model-pane" aria-label="Vehicle model">
         <div className="viewer-wrap">
-          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame} showRequested={requested} showDoorSwing={doorSwing} showProvision={provision} layout={layout} gantryLevel={gantryLevel} onSelect={choose}
+          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame && !first} showRequested={requested && !first} showDoorSwing={doorSwing} showProvision={provision && !first} layout={first ? 'sheet' : layout} phase={phase} gantryLevel={gantryLevel} onSelect={choose}
             annotations={annotations} addMode={addMode} selectedAnnotation={selectedAnnotation} onAddAnnotation={addAnnotation} onMoveAnnotation={moveAnnotation}
             onSelectAnnotation={id => { setSelectedAnnotation(id); setSelected(null); setPanel('layout'); }} />
-          <div className="stage-height"><span>Scenario top</span><strong>≈ {metres(layout === 'sheet' ? heights.sheet : gantryLevel === 'roof' ? heights.pathrunner : heights.lowered)}</strong><small>2.60 m target exceeded</small></div>
+          <div className="stage-height">{first
+            ? <><span>Phase 1 top</span><strong>≈ {metres(heights.ac)}</strong><small>roof A/C is the highest point</small></>
+            : <><span>Scenario top</span><strong>≈ {metres(layout === 'sheet' ? heights.sheet : gantryLevel === 'roof' ? heights.pathrunner : heights.lowered)}</strong><small>2.60 m target exceeded</small></>}</div>
           <div className="view-controls" role="group" aria-label="Camera view">
             {([['exterior', '3D exterior'], ['roof', 'Roof'], ['interior', 'Interior'], ['rear', 'Rear sensors']] as [View, string][]).map(([key, name]) =>
               <button key={key} type="button" className={view === key ? 'active' : ''} onClick={() => { setView(key); if (key === 'rear') setRearFrame(true); }}>{name}</button>
@@ -191,41 +199,48 @@ export default function Home() {
         </div>
         <div className="model-bottom">
           <button type="button" className={`add-point-button ${addMode ? 'active' : ''}`} aria-pressed={addMode} onClick={() => setAddMode(value => !value)}>{addMode ? 'Click on van…' : '+ Add point'}</button>
-          <div className="variant" role="group" aria-label="Sensor architecture">
+          <div className="variant" role="group" aria-label="Build scope">
+            <span>Scope</span>
+            <button type="button" className={first ? 'active' : ''} onClick={() => { setPhase('phase1'); setPanel('phase1'); setView('interior'); }}>Phase 1</button>
+            <button type="button" className={!first ? 'active' : ''} onClick={() => setPhase('full')}>Full concept</button>
+          </div>
+          {!first && <div className="variant" role="group" aria-label="Sensor architecture">
             <span>Layout</span>
             <button type="button" className={layout === 'sheet' ? 'active' : ''} onClick={() => setLayout('sheet')}>Our sheet</button>
             <button type="button" className={layout === 'pathrunner' ? 'active' : ''} onClick={() => setLayout('pathrunner')}>PathRunner</button>
-          </div>
+          </div>}
           <div className="variant" role="group" aria-label="Vehicle body length">
             <span>Body length</span>
             <button type="button" className={body === 'extended' ? 'active' : ''} onClick={() => setBody('extended')}>Extended · 263.9″</button>
             <button type="button" className={body === 'long' ? 'active' : ''} onClick={() => setBody('long')}>Long · 235.5″</button>
           </div>
           <label className="toggle"><input type="checkbox" checked={limit} onChange={e => setLimit(e.target.checked)} /> 2.60 m clearance plane</label>
-          {layout === 'sheet' && <label className="toggle gold"><input type="checkbox" checked={requested} onChange={e => setRequested(e.target.checked)} /> Requested upgrades</label>}
+          {!first && layout === 'sheet' && <label className="toggle gold"><input type="checkbox" checked={requested} onChange={e => setRequested(e.target.checked)} /> Requested upgrades</label>}
           <label className="toggle"><input type="checkbox" checked={doorSwing} onChange={e => setDoorSwing(e.target.checked)} /> Rear door swing</label>
-          <label className="toggle"><input type="checkbox" checked={provision} onChange={e => setProvision(e.target.checked)} /> Cab provisioning</label>
+          {!first && <label className="toggle"><input type="checkbox" checked={provision} onChange={e => setProvision(e.target.checked)} /> Cab provisioning</label>}
         </div>
-        {layout === 'pathrunner' && <div className="gantry-switch" role="group" aria-label="PathRunner crossarm height">
+        {!first && layout === 'pathrunner' && <div className="gantry-switch" role="group" aria-label="PathRunner crossarm height">
           <span>Gantry height</span>
             <button type="button" className={gantryLevel === 'roof' ? 'active' : ''} onClick={() => setGantryLevel('roof')}>Raised crossarm · {metres(heights.raisedBar)}</button>
             <button type="button" className={gantryLevel === 'lowered' ? 'active' : ''} onClick={() => setGantryLevel('lowered')}>Lower crossarm · {metres(heights.loweredDeck)}</button>
         </div>}
-        <div className="height-compare" aria-label="Height comparison">
+        {!first && <div className="height-compare" aria-label="Height comparison">
           <div><span>Bare high roof</span><strong>{metres(heights.roof)}</strong><small>Ford published</small></div>
           <div className={layout === 'sheet' ? 'active' : ''}><span>Sensors only</span><strong>≈ {metres(heights.sensors)}</strong><small>Lowered mounts; A/C not yet fitted</small></div>
           <div><span>With rear A/C</span><strong>≈ {metres(heights.ac)}</strong><small>Later addition, becomes the tallest</small></div>
           <div className={layout === 'pathrunner' && gantryLevel === 'roof' ? 'active' : ''}><span>Raised rear gantry</span><strong>≈ {metres(heights.pathrunner)}</strong><small>Photo proportions; unmeasured</small></div>
           <div className={layout === 'pathrunner' && gantryLevel === 'lowered' ? 'active' : ''}><span>Lowered gantry</span><strong>≈ {metres(heights.lowered)}</strong><small>A/C remains highest</small></div>
-        </div>
-        <div className="design-conflict"><strong>No 2.60 m solution on this high-roof van.</strong> Lowering the rear crossarm brings the upper sensors to {metres(heights.loweredHead)}, below the {metres(heights.roof)} roof, so the body can block forward views. With the mounts lowered the sensing package tops out at {metres(heights.sensors)}, but the rear A/C fitted later still reaches {metres(heights.ac)} and becomes the highest point. Tsai must choose the sensor architecture and parking plan before fabrication.</div>
+        </div>}
+        {first
+          ? <div className="design-conflict"><strong>Phase one only.</strong> No rear carrier, no sensors and no workstation: this is what Leonard quoted on 30 October. The gold patch on the rear roof is the area held clear for the phase-two sensor carrier, and the translucent volumes inside are the shelving and worktop that were discussed on 21 October but appear on neither quote. The A/C at {metres(heights.ac)} is the highest point on the van in this scope.</div>
+          : <div className="design-conflict"><strong>No 2.60 m solution on this high-roof van.</strong> Lowering the rear crossarm brings the upper sensors to {metres(heights.loweredHead)}, below the {metres(heights.roof)} roof, so the body can block forward views. With the mounts lowered the sensing package tops out at {metres(heights.sensors)}, but the rear A/C fitted later still reaches {metres(heights.ac)} and becomes the highest point. Tsai must choose the sensor architecture and parking plan before fabrication.</div>}
         <div className="model-caption">Drag to orbit · scroll to zoom · select a numbered pin. Ford dimensions set the vehicle envelope; hardware sizes and mounting positions remain conceptual until measured.</div>
       </section>
 
       <aside className="side-pane" aria-label="Build details">
         <nav className="side-tabs" aria-label="Details tabs">
-          <button className={panel === 'phase1' ? 'active' : ''} onClick={() => setPanel('phase1')}>Phase 1</button>
-          <button className={panel === 'layout' ? 'active' : ''} onClick={() => setPanel('layout')}>Build sheet</button>
+          <button className={panel === 'phase1' ? 'active' : ''} onClick={() => { setPanel('phase1'); setPhase('phase1'); setSelected(null); setView('interior'); }}>Phase 1</button>
+          <button className={panel === 'layout' ? 'active' : ''} onClick={() => { setPanel('layout'); setPhase('full'); setSelected(null); }}>Build sheet</button>
           <button className={panel === 'dimensions' ? 'active' : ''} onClick={() => setPanel('dimensions')}>Dimensions</button>
           <button className={panel === 'sources' ? 'active' : ''} onClick={() => setPanel('sources')}>Sources</button>
         </nav>
@@ -238,6 +253,21 @@ export default function Home() {
               <div className="quote-option"><span>Option B · 368-QUO-100657</span><strong>{money(11574)}</strong><small>Option A plus two captain seats</small></div>
             </div>
             <p className="quote-meta">Both quotes are dated 30 October 2026 and are identical apart from the seat kit, which adds {money(4125)} installed. Listed discounts of $288.97 are already applied and no sales tax is shown.</p>
+            <div className="part-group" style={{ marginTop: 24 }}><h3>What lands in the van</h3>
+              {(['acRear', 'p1Liner', 'p1Ceiling', 'p1Seats', 'p1Power'] as Part[]).map(id => {
+                const item = detail[id];
+                const expanded = selected === id;
+                return <div className="part-item" key={id}>
+                  <button type="button" className={`part-row ${expanded ? 'active' : ''}`} aria-expanded={expanded} onClick={() => { setPhase('phase1'); choose(id); }}>
+                    <span className={`part-number tone-${tags[id].tone}`}>{tags[id].label}</span>
+                    <span>{id === 'acRear' ? 'Auxiliary roof A/C' : item.title}</span>
+                    <span className="part-arrow">{expanded ? '−' : '+'}</span>
+                  </button>
+                  {expanded && <div className="part-spec"><strong>Equipment needed</strong><ul>{item.items.map(line => <li key={line}>{line}</li>)}</ul>{item.status && <p className="part-status">{item.status}</p>}</div>}
+                </div>;
+              })}
+            </div>
+
             {!showPrices && <p className="quote-hidden">Figures are hidden on the shared link, because this URL has also been sent to competing upfitters. Add <code>?quote=1</code> to the address to show the quoted amounts.</p>}
 
             {quoteGroups.map(group => <div key={group.title}>
