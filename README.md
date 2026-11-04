@@ -23,6 +23,11 @@ The production build uses `/gtsv/` as its route and asset prefix. A push to
 GitHub Pages. Repository Settings → Pages must use **GitHub Actions** as its source.
 The resulting URL is `https://zklou.github.io/gtsv/`.
 
+The **Phase 1** tab holds the Leonard USA quotes of 30 October 2026 (368-QUO-100610
+and 368-QUO-100657), the schedule and terms, what is still open against the quote, and
+what Georgia Tech still owes the vendor. Quoted amounts are hidden by default because
+this URL has also been sent to competing upfitters; append `?quote=1` to show them.
+
 Custom points placed in the viewer are saved in the current browser. Use
 **Copy link with points** to give someone a URL that carries the points in its
 query string. This is suitable for a small number of points; there is no shared

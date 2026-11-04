@@ -42,3 +42,24 @@
 .part-number.tone-reference{color:#2f6f96}
 .group-requested h3{color:#a07d2c}
 .group-reference h3{color:#2f6f96}
+
+.pin-provision{border-color:#4a6b57;background:#eef5f0;color:#2f4f3c}
+.pin-provision:hover,.pin-provision.selected{background:#4a6b57;color:#fff}
+.part-number.tone-provision{color:#4a6b57}
+.group-provision h3{color:#4a6b57}
+
+.quote-choice{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:13px}
+.quote-option{border:1px solid #d5dfe3;background:#f7f9fa;padding:12px 13px;min-width:0}
+.quote-option span{display:block;font:9px 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#677b86;line-height:1.4}
+.quote-option strong{display:block;font:600 19px 'IBM Plex Mono',monospace;color:#17384a;margin:6px 0 5px;letter-spacing:-.02em}
+.quote-option small{display:block;font-size:11px;line-height:1.42;color:#72828c}
+.quote-meta{font-size:11px;line-height:1.55;color:#72828c}
+.quote-hidden{border:1px dashed #bccbd3;padding:11px 12px;font-size:11px;line-height:1.55;color:#5e717d;margin-top:13px}
+.quote-hidden code{font:11px 'IBM Plex Mono',monospace;color:#2f5668}
+.quote-group-title{font:600 10px 'IBM Plex Mono',monospace;color:#8b9aa4;text-transform:uppercase;letter-spacing:.12em;margin:22px 0 7px}
+.quote-group-title.seats{color:#a07d2c}
+.quote-table{width:100%;border-collapse:collapse}
+.quote-table td{font-size:12px;color:#36505f;padding:8px 0;border-bottom:1px solid #e8edef;line-height:1.45}
+.quote-table td.num{font:500 11px 'IBM Plex Mono',monospace;color:#1b3648;text-align:right;white-space:nowrap;padding-left:12px;width:1%}
+.quote-table tr.subtotal td{border-bottom:0;color:#173b53;font-weight:700}
+.quote-table tr.subtotal td.num{font-weight:600}

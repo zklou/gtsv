@@ -6,9 +6,11 @@ export type View = 'exterior' | 'roof' | 'interior' | 'rear';
 export type Body = 'extended' | 'long';
 export type Layout = 'sheet' | 'pathrunner' | 'hybrid';
 export type GantryLevel = 'roof' | 'lowered';
-export type Tone = 'base' | 'requested' | 'reference';
+export type Tone = 'base' | 'requested' | 'reference' | 'provision';
 export type Part =
-  | 'beam' | 'lidar' | 'cameras' | 'gnss' | 'pass' | 'ac'
+  | 'beam' | 'lidar' | 'cameras' | 'gnss' | 'pass'
+  | 'frontCams' | 'acRear'
+  | 'pvConsole' | 'pvScreen' | 'pvCable' | 'pvPower'
   | 'seats' | 'desk' | 'rack' | 'power'
   | 'rqLidar' | 'rqCamera' | 'rqDepth' | 'rqGnss' | 'rqTobii'
   | 'pgDeck' | 'pgMast' | 'pgPavement' | 'pgDmi' | 'pgFront';
@@ -35,15 +37,20 @@ const WHEEL_R = 0.356;
 const TRACK_F = 68.2 * IN;
 const TRACK_R = 68.6 * IN;
 const LIMIT_Y = 2.60;
+const REAR_DOOR_W = 61.7 * IN;   // Ford published rear cargo door opening
+const REAR_DOOR_H = 74.3 * IN;
 const BEVEL = 0.075;
 
 const BEAM_Z = 2.95;
 const BEAM_FOOT = 0.05;
 const BEAM_H = 0.06;
 const LIDAR_H = 0.095;
-const REAR_LIDAR_CENTER_RISE = 0.235;
+const REAR_BAR_DROP = 0.174;   // crossbar sits this far below the roof line
+const REAR_BAR_HALF = 0.045;   // half the crossbar section
 const AC = { w: 1.09, h: 0.24, d: 0.71 };
-const acZ = (_b: Spec) => 3.18; // user clarification: A/C is the front roof object
+const frontCamZ = 3.18;                         // three forward cameras, front of the roof
+const acRearZ = (b: Spec) => b.length - 1.10;   // A/C goes on later, rear third
+const FRONT_CAM_RISE = 0.14;
 const passZ = (b: Spec) => b.length - 0.36; // paired rear roof entries in the reference photo
 const beamTop = (b: Spec) => b.height + BEAM_FOOT + BEAM_H;
 const GANTRY_LOW_Y = 2.24;
@@ -53,12 +60,15 @@ const AC_RISE = 0.27; // 0.03 m base + 0.24 m assumed unit
 
 export function heightCases(body: Body) {
   const roof = bodies[body].height;
-  const ac = roof + AC_RISE;
-  const sheet = Math.max(ac, roof + REAR_LIDAR_CENTER_RISE + LIDAR_H / 2);
+  const ac = roof + AC_RISE;                    // rear A/C, fitted later
+  const frontCams = roof + FRONT_CAM_RISE;
+  const rearCarrier = roof - REAR_BAR_DROP + REAR_BAR_HALF + LIDAR_H;   // stays under the roof
+  const sensors = Math.max(frontCams, rearCarrier);
+  const sheet = Math.max(ac, sensors);
   const pathrunner = Math.max(ac, roof + GANTRY_FRAME_RISE + GANTRY_MAST_RISE);
   const loweredHead = GANTRY_LOW_Y + GANTRY_MAST_RISE;
   const lowered = Math.max(roof, ac, loweredHead);
-  return { roof, ac, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead };
+  return { roof, ac, sensors, frontCams, rearCarrier, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead };
 }
 
 /* cowl and header define the windscreen plane; reused for the glass */
@@ -66,12 +76,13 @@ const COWL: [number, number] = [1.020, 1.428];
 const HEADER: [number, number] = [1.780, 2.205];
 
 export const tags: Record<Part, { label: string; views: View[]; tone: Tone }> = {
-  beam:       { label: '01', views: ['exterior', 'roof'], tone: 'base' },
-  lidar:      { label: '02', views: ['exterior', 'roof'], tone: 'base' },
-  cameras:    { label: '03', views: ['exterior', 'roof'], tone: 'base' },
-  gnss:       { label: '04', views: ['exterior', 'roof'], tone: 'base' },
-  pass:       { label: '05', views: ['exterior', 'roof'], tone: 'base' },
-  ac:         { label: '06', views: ['exterior', 'roof'], tone: 'base' },
+  beam:       { label: '01', views: ['exterior', 'roof', 'rear'], tone: 'base' },
+  lidar:      { label: '02', views: ['exterior', 'roof', 'rear'], tone: 'base' },
+  cameras:    { label: '03', views: ['exterior', 'roof', 'rear'], tone: 'base' },
+  gnss:       { label: '04', views: ['exterior', 'roof', 'rear'], tone: 'base' },
+  pass:       { label: '05', views: ['exterior', 'roof', 'rear'], tone: 'base' },
+  frontCams:  { label: '06', views: ['exterior', 'roof'], tone: 'base' },
+  acRear:     { label: '11', views: ['exterior', 'roof'], tone: 'base' },
   seats:      { label: '07', views: ['interior'], tone: 'base' },
   desk:       { label: '08', views: ['interior'], tone: 'base' },
   rack:       { label: '09', views: ['interior'], tone: 'base' },
@@ -81,6 +92,10 @@ export const tags: Record<Part, { label: string; views: View[]; tone: Tone }> = 
   rqCamera:   { label: 'A3', views: ['exterior', 'roof'], tone: 'requested' },
   rqDepth:    { label: 'A4', views: ['exterior', 'roof'], tone: 'requested' },
   rqTobii:    { label: 'A5', views: ['interior'], tone: 'requested' },
+  pvConsole:  { label: 'V1', views: ['interior'], tone: 'provision' },
+  pvScreen:   { label: 'V2', views: ['interior'], tone: 'provision' },
+  pvCable:    { label: 'V3', views: ['interior'], tone: 'provision' },
+  pvPower:    { label: 'V4', views: ['interior'], tone: 'provision' },
   pgDeck:     { label: 'P1', views: ['rear', 'exterior'], tone: 'reference' },
   pgMast:     { label: 'P2', views: ['rear', 'exterior'], tone: 'reference' },
   pgPavement: { label: 'P3', views: ['rear', 'exterior'], tone: 'reference' },
@@ -180,6 +195,8 @@ type Props = {
   showLimit: boolean;
   showRearFrame: boolean;
   showRequested: boolean;
+  showDoorSwing: boolean;
+  showProvision: boolean;
   layout: Layout;
   gantryLevel: GantryLevel;
   onSelect: (part: Part) => void;
@@ -192,7 +209,7 @@ type Props = {
 };
 type Screen = { x: number; y: number; ax: number; ay: number; visible: boolean };
 
-export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, layout, gantryLevel, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
+export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, gantryLevel, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [positions, setPositions] = useState<Record<string, Screen>>({});
@@ -210,6 +227,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     setLimit: (on: boolean) => void;
     setRear: (on: boolean) => void;
     setRequested: (on: boolean) => void;
+    setDoorSwing: (on: boolean) => void;
+    setProvision: (on: boolean) => void;
     highlight: (p: Part | null) => void;
     addAt: (x: number, y: number) => void;
     moveAt: (id: string, x: number, y: number) => void;
@@ -317,7 +336,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       const dir = new THREE.Vector3().subVectors(to, from);
       const mesh = new THREE.Mesh(keep(new THREE.BoxGeometry(t, t, dir.length())), m);
       mesh.position.copy(from).addScaledVector(dir, 0.5);
-      mesh.lookAt(to);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir.clone().normalize());
       mesh.castShadow = true;
       p.add(mesh);
       return mesh;
@@ -449,51 +468,75 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     box(pass, M.dark, 0.20, 0.07, 0.16, 0.10, H + 0.05, passZ(b));
     roofKit.add(pass);
 
-    const ac = new THREE.Group();
-    box(ac, M.trim, AC.w + 0.06, 0.025, AC.d + 0.06, 0, H + 0.013, acZ(b), false);
-    [-0.43, 0.43].forEach(x => [-0.26, 0.26].forEach(z =>
-      box(ac, M.alu, 0.065, 0.075, 0.065, x, H + 0.055, acZ(b) + z)));
-    box(ac, M.shell, AC.w, 0.18, AC.d, 0, H + 0.18, acZ(b));
-    for (let i = 0; i < 5; i++) box(ac, M.dark, 0.025, 0.08, AC.d * 0.78, -0.28 + i * 0.14, H + 0.21, acZ(b), false);
-    box(ac, M.trim, AC.w - 0.14, 0.07, 0.02, 0, H + 0.18, acZ(b) - AC.d / 2 - 0.011, false);
-    tube(ac, M.trim, 0.19, 0.03, 0, H + 0.016, acZ(b) + 0.10);
-    scene.add(ac); parts.ac = ac;
+    const frontCams = new THREE.Group();
+    box(frontCams, M.trim, 0.92, 0.024, 0.26, 0, H + 0.012, frontCamZ, false);
+    [-0.30, 0, 0.30].forEach(x => {
+      box(frontCams, M.alu, 0.10, 0.024, 0.10, x, H + 0.036, frontCamZ, false);
+      box(frontCams, M.sensor, 0.15, 0.105, 0.20, x, H + 0.0875, frontCamZ);
+      tube(frontCams, M.lens, 0.042, 0.03, x, H + 0.0875, frontCamZ - 0.105, 'z');
+    });
+    scene.add(frontCams); parts.frontCams = frontCams;
+
+    // A/C is a later addition, on the rear third of the roof
+    const acRear = new THREE.Group();
+    const az = acRearZ(b);
+    box(acRear, M.trim, AC.w + 0.06, 0.025, AC.d + 0.06, 0, H + 0.013, az, false);
+    box(acRear, M.shell, AC.w, AC.h, AC.d, 0, H + 0.025 + AC.h / 2, az);
+    for (let i = 0; i < 5; i++) box(acRear, M.dark, 0.025, 0.08, AC.d * 0.78, -0.28 + i * 0.14, H + 0.025 + AC.h * 0.72, az, false);
+    tube(acRear, M.trim, 0.19, 0.03, 0, H + 0.016, az - AC.d / 2 - 0.12);
+    scene.add(acRear); parts.acRear = acRear;
 
     // User-corrected sheet: A/C forward, existing sensor package carried aft.
     // This is a planning envelope; the exact rear bracket is not dimensioned.
     const sheetRear = new THREE.Group();
     sheetRear.visible = !pr;
     scene.add(sheetRear);
+    const rearBarY = H - REAR_BAR_DROP;
+    const postX = 0.78;          // inboard of the rear track, clear of the wheels
+    const yBase = 0.46;          // chassis rail height
+    const zPost = L + 0.16;      // posts just clear of the rear doors, which must still open
+    const zBar = L + 0.56;       // sensor crossbar, cantilevered aft of the posts
     const rearBeam = new THREE.Group();
-    [-0.82, 0.82].forEach(x => {
-      strut(rearBeam, M.alu, V3(x, 0.72, L + 0.04), V3(x, H + 0.13, L + 0.36), 0.075);
-      strut(rearBeam, M.alu, V3(x, H + 0.13, L + 0.36), V3(x, H + 0.13, L + 0.55), 0.075);
-      strut(rearBeam, M.alu, V3(x, 0.72, L + 0.04), V3(x, H + 0.13, L + 0.55), 0.055);
+
+    // base frame: bolts to the chassis under the body, then carries everything above
+    [-1, 1].forEach(sd => strut(rearBeam, M.trim, V3(sd * postX, yBase, L - 0.55), V3(sd * postX, yBase, L + 0.34), 0.085));
+    box(rearBeam, M.trim, postX * 2 + 0.09, 0.085, 0.09, 0, yBase, L + 0.30);
+    box(rearBeam, M.trim, postX * 2 + 0.09, 0.085, 0.09, 0, yBase, L - 0.42);
+
+    [-1, 1].forEach(sd => {
+      const x = sd * postX;
+      strut(rearBeam, M.alu, V3(x, yBase, zPost), V3(x, rearBarY, zPost), 0.085);        // post
+      strut(rearBeam, M.alu, V3(x, rearBarY, zPost), V3(x, rearBarY, zBar), 0.070);      // cantilever arm
+      strut(rearBeam, M.alu, V3(x, rearBarY, zBar), V3(x, yBase + 0.10, zPost), 0.060);  // brace against the cantilever
     });
-    box(rearBeam, M.alu, 1.88, 0.09, 0.13, 0, H + 0.14, L + 0.54);
-    box(rearBeam, M.trim, 1.98, 0.08, 0.10, 0, 0.45, L + 0.51);
-    [-0.78, 0.78].forEach(x => strut(rearBeam, M.trim, V3(x, 0.58, L + 0.04), V3(x, 0.45, L + 0.51), 0.055));
-    [-0.58, 0.58].forEach(x => {
-      box(rearBeam, M.sensor, 0.30, 0.16, 0.22, x, 0.42, L + 0.51);
-      tube(rearBeam, M.lens, 0.04, 0.025, x, 0.33, L + 0.51);
+    box(rearBeam, M.alu, postX * 2 + 0.16, REAR_BAR_HALF * 2, 0.13, 0, rearBarY, zBar);  // sensor crossbar
+    box(rearBeam, M.alu, postX * 2, 0.06, 0.07, 0, 1.52, zPost);                         // transverse cross-brace
+    strut(rearBeam, M.alu, V3(0, rearBarY, zBar), V3(0, rearBarY, L + 0.72), 0.05);      // GNSS stub
+
+    // low pavement bar, hung off the base frame
+    [-1, 1].forEach(sd => strut(rearBeam, M.trim, V3(sd * postX, yBase, L + 0.30), V3(sd * postX, 0.40, L + 0.50), 0.05));
+    box(rearBeam, M.trim, postX * 2 + 0.12, 0.08, 0.10, 0, 0.40, L + 0.50);
+    [-0.54, 0.54].forEach(x => {
+      box(rearBeam, M.sensor, 0.30, 0.16, 0.22, x, 0.37, L + 0.50);
+      tube(rearBeam, M.lens, 0.04, 0.025, x, 0.28, L + 0.50);
     });
     sheetRear.add(rearBeam);
     const rearLidar = new THREE.Group();
     [-0.68, 0, 0.68].forEach(x => {
-      tube(rearLidar, M.sensor, 0.06, LIDAR_H, x, H + REAR_LIDAR_CENTER_RISE, L + 0.54);
-      tube(rearLidar, M.gold, 0.062, 0.03, x, H + 0.26, L + 0.54);
+      tube(rearLidar, M.sensor, 0.06, LIDAR_H, x, rearBarY + REAR_BAR_HALF + LIDAR_H / 2, zBar);
+      tube(rearLidar, M.gold, 0.062, 0.03, x, rearBarY + REAR_BAR_HALF + LIDAR_H * 0.75, zBar);
     });
     sheetRear.add(rearLidar);
     const rearCameras = new THREE.Group();
     [-0.34, 0.34].forEach(x => {
-      box(rearCameras, M.sensor, 0.12, 0.09, 0.16, x, H + 0.23, L + 0.37);
-      tube(rearCameras, M.lens, 0.03, 0.03, x, H + 0.23, L + 0.27, 'z');
+      box(rearCameras, M.sensor, 0.12, 0.09, 0.16, x, rearBarY - 0.14, zPost + 0.05);
+      tube(rearCameras, M.lens, 0.03, 0.03, x, rearBarY - 0.14, zPost - 0.04, 'z');
     });
     sheetRear.add(rearCameras);
     const rearGnss = new THREE.Group();
-    tube(rearGnss, M.shell, 0.08, 0.055, 0, H + 0.215, L + 0.70);
+    tube(rearGnss, M.shell, 0.08, 0.055, 0, rearBarY + REAR_BAR_HALF + 0.028, L + 0.72);
     sheetRear.add(rearGnss);
-    const rearPass = rearCableEntries(sheetRear, H + 0.15, L + 0.28);
+    const rearPass = rearCableEntries(sheetRear, H + 0.02, passZ(b));
     if (!pr) {
       parts.beam = rearBeam; parts.lidar = rearLidar; parts.cameras = rearCameras;
       parts.gnss = rearGnss; parts.pass = rearPass;
@@ -504,6 +547,40 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     inside.visible = false;
     scene.add(inside);
     const zBulk = L - b.cargo;
+
+    /* Cab provisioning: rail, cable route and power fitted now; screen added later. */
+    const provision = new THREE.Group();
+    provision.visible = false;
+    inside.add(provision);
+    const ghost = new THREE.MeshStandardMaterial({ color: 0x4a6b57, roughness: 0.5, metalness: 0.1, transparent: true, opacity: 0.6 });
+    const ghostFace = new THREE.MeshStandardMaterial({ color: 0x12211b, roughness: 0.28, transparent: true, opacity: 0.8, emissive: 0x1d4436, emissiveIntensity: 0.55 });
+    owned.push(ghostFace);
+    owned.push(ghost);
+    const cabFloor = 0.70, zConsole = 2.16;
+
+    const pvConsole = new THREE.Group();
+    box(pvConsole, M.dark, 0.30, 0.07, 0.86, 0, cabFloor + 0.035, zConsole);
+    for (let i = 0; i < 6; i++) box(pvConsole, M.trim, 0.04, 0.02, 0.04, 0, cabFloor + 0.075, zConsole - 0.36 + i * 0.145, false);
+    provision.add(pvConsole); parts.pvConsole = pvConsole;
+
+    const pvScreen = new THREE.Group();
+    box(pvScreen, ghost, 0.06, 0.52, 0.06, 0.02, cabFloor + 0.33, zConsole - 0.30);
+    box(pvScreen, ghost, 0.30, 0.05, 0.05, 0.17, cabFloor + 0.58, zConsole - 0.30);
+    const bezel = box(pvScreen, ghost, 0.58, 0.36, 0.022, 0.34, cabFloor + 0.60, zConsole - 0.34);
+    bezel.rotation.y = -0.45;
+    const pane = box(pvScreen, ghostFace, 0.54, 0.32, 0.012, 0.34, cabFloor + 0.60, zConsole - 0.352);
+    pane.rotation.y = -0.45;
+    provision.add(pvScreen); parts.pvScreen = pvScreen;
+
+    const pvCable = new THREE.Group();
+    box(pvCable, M.trim, 0.10, 0.06, 1.30, -0.44, F - 0.02, zBulk + 0.62, false);
+    box(pvCable, M.trim, 0.09, 0.06, 0.55, -0.30, cabFloor + 0.02, zConsole + 0.30, false);
+    provision.add(pvCable); parts.pvCable = pvCable;
+
+    const pvPower = new THREE.Group();
+    box(pvPower, M.dark, 0.24, 0.14, 0.05, 0, cabFloor + 0.14, zConsole + 0.40);
+    [-0.06, 0.06].forEach(x => box(pvPower, M.gold, 0.05, 0.05, 0.02, x, cabFloor + 0.14, zConsole + 0.372, false));
+    provision.add(pvPower); parts.pvPower = pvPower;
 
     box(inside, M.floor, CARGO_W, 0.03, b.cargo, 0, F - 0.015, zBulk + b.cargo / 2, false);
     [-1, 1].forEach(s => box(inside, M.furn, (CARGO_W - WHEEL_W) / 2, 0.30, 0.99,
@@ -733,6 +810,29 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       anchors[id] = new THREE.Vector3(mid.x, high ? measure.max.y + 0.09 : mid.y, mid.z);
     });
 
+    /* rear doors swung to 90 degrees: the leaves sweep exactly where a rear frame wants to stand */
+    const doorSwing = new THREE.Group();
+    doorSwing.visible = false;
+    scene.add(doorSwing);
+    const doorHalf = REAR_DOOR_W / 2;
+    const swingMat = new THREE.MeshBasicMaterial({ color: 0xb04a2c, transparent: true, opacity: 0.20, side: THREE.DoubleSide, depthWrite: false });
+    owned.push(swingMat);
+    const arcMat = new THREE.LineBasicMaterial({ color: 0xb04a2c });
+    owned.push(arcMat);
+    [-1, 1].forEach(sd => {
+      const leaf = new THREE.Mesh(keep(new THREE.PlaneGeometry(doorHalf, REAR_DOOR_H)), swingMat);
+      leaf.rotation.y = Math.PI / 2;
+      leaf.position.set(sd * doorHalf, F + REAR_DOOR_H / 2, L + doorHalf / 2);
+      doorSwing.add(leaf);
+      const pts: number[] = [];
+      for (let i = 0; i <= 20; i++) {
+        const th = (i / 20) * Math.PI / 2;
+        pts.push(sd * doorHalf * (1 - Math.cos(th)), 0.03, L + doorHalf * Math.sin(th));
+      }
+      doorSwing.add(new THREE.Line(keep(new THREE.BufferGeometry().setAttribute('position',
+        new THREE.Float32BufferAttribute(pts, 3))), arcMat));
+    });
+
     const outline = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color(0xb3a369));
     outline.visible = false;
     scene.add(outline);
@@ -932,6 +1032,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       setLimit: on => { limit.visible = on; bumpShadows(); wake(); },
       setRear: on => { rearFrame.visible = pr || hy || on; bumpShadows(); wake(); },
       setRequested: on => { requested.visible = on && !pr; bumpShadows(); wake(); },
+      setDoorSwing: on => { doorSwing.visible = on; wake(); },
+      setProvision: on => { provision.visible = on; bumpShadows(); wake(); },
       highlight: p => {
         const target = p ? parts[p] : null;
         if (!target || !target.visible) outline.visible = false;
@@ -969,6 +1071,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
   useEffect(() => { api.current?.setLimit(showLimit); }, [showLimit]);
   useEffect(() => { api.current?.setRear(showRearFrame); }, [showRearFrame]);
   useEffect(() => { api.current?.setRequested(showRequested); }, [showRequested]);
+  useEffect(() => { api.current?.setDoorSwing(showDoorSwing); }, [showDoorSwing]);
+  useEffect(() => { api.current?.setProvision(showProvision); }, [showProvision]);
   useEffect(() => { api.current?.highlight(selected); }, [selected, view, showRearFrame]);
   useEffect(() => { api.current?.redraw(); }, [annotations]);
 

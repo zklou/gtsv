@@ -10,15 +10,20 @@ const detail: Record<Part, DeviceSpec> = {
   cameras: { title: 'Camera mounts', items: ['Rigid camera mounts on the sensor frame', 'Cameras — count and models TBD'], status: 'The sheet does not give a camera count.' },
   gnss: { title: 'GPS / IMU', items: ['GPS / IMU set', 'Fixed mount on the sensor frame'], status: 'Receiver, antenna and IMU models TBD.' },
   pass: { title: 'Rear cable entries', items: ['Sealed rear roof cable entries × 2', 'Cable runs from both entries to the rear sensor carrier'], status: 'Two separate entries follow the PathRunner reference photo. Exact routing and roof cutouts TBD.' },
-  ac: { title: 'Auxiliary roof A/C', items: ['Low-profile roof A/C × 1', 'Cabin duct and roof opening'], status: 'Front roof position confirmed by your correction; unit model and dimensions TBD.' },
+  frontCams: { title: 'Three forward cameras', items: ['Forward-facing cameras × 3', 'Low-profile roof rail and mounts'], status: 'Your correction: the front roof object is three cameras, not the A/C. Models and lens choice TBD.' },
+  acRear: { title: 'Auxiliary roof A/C (later)', items: ['Low-profile roof A/C × 1', 'Cabin duct and roof opening'], status: 'Fitted after the sensing package, on the rear third of the roof. Unit model and dimensions TBD.' },
   seats: { title: 'Crew seats', items: ['New forward-facing belted seats × 2', 'Phone mounts × 2', 'Seat and floor reinforcement'], status: 'Seat model and certification TBD.' },
   desk: { title: 'Operator workstation', items: ['Industrial tower PC × 1', '24 in 1920 × 1080 monitor × 1 with VESA arm', 'Removable 2 TB NVMe drives × 2', '120 V outlets × 4; USB-C ports × 4', 'Adjustable LED work lights × 2'], status: 'Desk and mounting dimensions TBD.' },
-  rack: { title: 'Equipment rack / storage', items: ['Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Rack size and equipment inventory TBD.' },
+  rack: { title: 'Equipment rack / storage', items: ['NOTE: rear doors are blocked by the sensor frame, so this must load through the side door','Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Rack size and inventory TBD. It currently sits aft of the side door aperture (which ends ~4.06 m), so either the rack moves forward or it has to be built up in place.' },
   power: { title: 'Independent power', items: ['Auxiliary battery bank', 'Vehicle DC-DC charger', '2000 W pure sine inverter', 'Separate UPS for the host PC'], status: 'Battery size to be set for the sheet’s 2-hour engine-off target.' },
   rqLidar: { title: 'Colour LiDAR', items: ['Colour LiDAR — model and quantity TBD'], status: 'Handwritten addition on sheet 03; whether it replaces an existing unit is undecided.' },
   rqGnss: { title: 'RTK / PPK GPS', items: ['RTK / PPK-capable GNSS receiver — model TBD'], status: 'Handwritten “very good GPS” / “RTK / PPK” on sheet 03.' },
   rqCamera: { title: 'High-quality camera', items: ['High-quality camera — model and quantity TBD'], status: 'Handwritten addition on sheet 03.' },
   rqDepth: { title: 'Depth camera', items: ['Depth camera — model and quantity TBD'], status: 'Handwritten addition on sheet 03.' },
+  pvConsole: { title: 'Cab console rail', items: ['Floor-mounted rail between the front seats', 'Bolt pattern for arms and trays'], status: 'Fitted during the build. This is the base everything in the cab clips onto.' },
+  pvScreen: { title: 'Passenger screen mount (later)', items: ['VESA arm on the console rail', 'Screen — added when needed'], status: 'Provisioned only. The arm mount and its bolt pattern go in now; the screen plugs in later.' },
+  pvCable: { title: 'Reserved cable route', items: ['Cable trunking from the rack to the cab console', 'Spare capacity for a screen and keyboard run'], status: 'Pulled during the build so nothing has to be opened up later.' },
+  pvPower: { title: 'Cab connector panel', items: ['Power and video outlets at the console', 'Spare ways left free'], status: 'Fitted with the rail so a screen needs one cable, not a rewire.' },
   rqTobii: { title: 'Eye tracking (Tobii)', items: ['Tobii eye-tracking device — model TBD'], status: 'Handwritten addition on sheet 03; cabin device.' },
   pgDeck: { title: 'Raised rear gantry', items: ['Cantilever frame above the rear roof', 'Diagonal support braces', 'Amber roof warning bars × 2'], status: 'Photo reference only; dimensions and structural design TBD.' },
   pgMast: { title: 'Elevated sensor housings', items: ['Upper sensor housings × 2', 'Center sensor / camera head'], status: 'The photo shows two large boxes above the roof; their instrument identities are unverified.' },
@@ -36,14 +41,70 @@ const pathrunnerDetail: Partial<Record<Part, DeviceSpec>> = {
 };
 
 const lists: { title: string; items: Part[]; tone?: string; layouts?: Layout[] }[] = [
-  { title: 'Front A/C · rear sensing', items: ['ac', 'beam', 'lidar', 'cameras', 'gnss', 'pass'] },
+  { title: 'Roof / sensing', items: ['frontCams', 'beam', 'lidar', 'cameras', 'gnss', 'pass', 'acRear'] },
   { title: 'Cabin / systems', items: ['seats', 'desk', 'rack', 'power'] },
+  { title: 'Provisioned now, used later', items: ['pvConsole', 'pvScreen', 'pvCable', 'pvPower'], tone: 'provision' },
   { title: 'Asked for by the group', items: ['rqLidar', 'rqGnss', 'rqCamera', 'rqDepth', 'rqTobii'], tone: 'requested' },
   { title: 'PathRunner reference rig', items: ['pgDeck', 'pgMast', 'pgPavement', 'pgDmi', 'pgFront'], tone: 'reference', layouts: ['sheet'] },
   { title: 'Also on the rig', items: ['pgPavement', 'pgDmi', 'pgFront'], tone: 'reference', layouts: ['pathrunner'] },
 ];
 
+type QuoteLine = { name: string; ext: number };
+type QuoteGroup = { title: string; lines: QuoteLine[]; seatsOnly?: boolean };
+
+/* Leonard USA quotes 368-QUO-100610 and 368-QUO-100657, both dated 30 Oct 2026.
+   Line items transcribed from the PDFs; the two quotes are identical apart from the seat kit. */
+const quoteGroups: QuoteGroup[] = [
+  { title: 'Air conditioning', lines: [
+    { name: 'Outequippro RV air conditioner, 12 V', ext: 1200 },
+  ] },
+  { title: 'Insulation and liners', lines: [
+    { name: 'Legend Transit 148 HR thermal shield kit, 85 pc', ext: 1500 },
+    { name: 'Legend 744-114-2613.HR wall liner', ext: 1350 },
+    { name: 'Legend 745-114-2613.HR DuraTherm ceiling', ext: 828 },
+    { name: 'Ford Transit HR DuraTherm door liner', ext: 361 },
+    { name: 'Transit wheel liners, 2 pc black', ext: 165 },
+  ] },
+  { title: 'Power', lines: [
+    { name: 'Go Power! 80179 pure sine inverter, 5000 W', ext: 785 },
+    { name: 'Tauk 1/0 battery cable kit, 250 A fuse holder, 40 ft', ext: 85 },
+  ] },
+  { title: 'Installation', lines: [
+    { name: 'Installation labor, 14 hr at $75', ext: 1050 },
+    { name: 'Installation supplies, 10 units', ext: 125 },
+  ] },
+  { title: 'Seating, option B only', seatsOnly: true, lines: [
+    { name: 'Tim Van double captain seat kit, DOT-approved belts', ext: 3750 },
+    { name: 'Installation labor, 5 hr at $75', ext: 375 },
+  ] },
+];
+
+const quoteFacts: [string, string][] = [
+  ['Parts lead time', 'about 1 week after order'],
+  ['Installation', '3 to 4 days including their QC'],
+  ['Layout strategy meeting', 'at drop-off, before work starts'],
+  ['Quote expires', '29 Dec 2026'],
+  ['Terms', 'Net 30, no sales tax shown'],
+  ['Worktag', 'DE00030878'],
+];
+
+const openItems: { title: string; body: string; neutral?: boolean }[] = [
+  { title: 'No house battery or charger is quoted', body: 'A 5000 W inverter is priced with no auxiliary battery bank, no DC-DC charger and no shore-power inlet. The old van carried two batteries. As quoted, the van cannot run the workstation with the engine off, which is what the requirement sheet asked for.' },
+  { title: 'Inverter against its own wire kit', body: 'The quoted kit is 1/0 cable with a 250 A fuse, which supports roughly 3 kW at 12 V. A 5000 W inverter draws on the order of 400 to 500 A at full output. Ask Patrick what continuous load the install is sized for, and whether the fuse and cable match the inverter or the expected load. The separately priced upgraded-inverter option promised at the site visit is also not broken out; the base quote already jumped to 5000 W.' },
+  { title: 'A/C must not take the phase-two roof', body: 'The site visit flagged that the A/C has to leave clearance for the rear sensor carrier. That depends on the sensor mounting height, which has not been sent to Patrick yet. Fix the roof position in the drop-off strategy meeting, not after.' },
+  { title: 'Liner kits are body-length specific', body: 'The Legend parts read "Transit 148 HR". Both the 235.5 in and the 263.9 in bodies use the same 148 in wheelbase, so that part number does not confirm the fit. Confirm the kits match the actual body length before the order goes in.', neutral: true },
+  { title: 'Shelving and workstation are not priced', body: 'The 21 October scope included compact modular shelving and possible reuse of the old desk. Neither quote contains them, so either they come later or they need to be added before the van goes in.', neutral: true },
+  { title: 'Seat pricing has a second source', body: 'Option B adds $4,125 for two seats installed, about $2,063 each, with DOT-approved belts. MobilityWorks gave a verbal $1,100 to $1,300 per seat with labor unclear, and Kim Coots reached out on 19 October. Worth one written comparison before committing, against the saving of running a single vendor.', neutral: true },
+];
+
+const gtOwes = [
+  'Send Patrick the reference photos and the sensor mounting height and geometry for the phase-two rear rack.',
+  'Produce the electrical load and outlet estimate that the inverter sizing depends on.',
+  'Read the old inverter label and settle the 800 W versus 1800 W discrepancy in the site-visit recordings.',
+];
+
 const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+const showPrices = params?.get('quote') === '1';
 const startView = (['exterior', 'roof', 'interior', 'rear'] as View[])
   .find(v => v === params?.get('view')) ?? 'exterior';
 const startBody = (['extended', 'long'] as Body[])
@@ -63,9 +124,11 @@ export default function Home() {
   const [limit, setLimit] = useState(false);
   const [rearFrame, setRearFrame] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [doorSwing, setDoorSwing] = useState(false);
+  const [provision, setProvision] = useState(true);
   const [layout, setLayout] = useState<Layout>('sheet');
   const [gantryLevel, setGantryLevel] = useState<GantryLevel>('roof');
-  const [panel, setPanel] = useState<'layout' | 'dimensions' | 'sources'>('layout');
+  const [panel, setPanel] = useState<'phase1' | 'layout' | 'dimensions' | 'sources'>('phase1');
   const [annotations, setAnnotations] = useState<Annotation[]>(savedPoints);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
@@ -73,6 +136,7 @@ export default function Home() {
   useEffect(() => { setCopiedPoints(false); try { localStorage.setItem('gtsv-custom-points', JSON.stringify(annotations)); } catch { /* browser storage may be disabled */ } }, [annotations]);
   const heights = heightCases(body);
   const metres = (v: number) => `${v.toFixed(2)} m`;
+  const money = (v: number) => showPrices ? `$${v.toLocaleString('en-US')}` : '$ — — —';
   const detailFor = (p: Part) => (layout === 'pathrunner' && pathrunnerDetail[p]) || detail[p];
   const length = body === 'extended' ? '263.9 in / 6.70 m' : '235.5 in / 5.98 m';
   const roofHeight = body === 'extended' ? '110.4 in / 2.80 m' : '109.6 in / 2.78 m';
@@ -109,13 +173,13 @@ export default function Home() {
     <header className="topbar">
       <div className="brand"><span className="brand-mark">GT</span><div><strong>Sensing Van</strong><small>Buildout review · Unit 503-1705</small></div></div>
       <span className="top-vin">2026 Transit-350 · VIN 1FTBW3X83TKA11541</span>
-      <span className="status">Concept for Tsai review</span>
+      <span className="status">Phase 1 quoted · decision open</span>
     </header>
 
     <main className="workspace">
       <section className="model-pane" aria-label="Vehicle model">
         <div className="viewer-wrap">
-          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame} showRequested={requested} layout={layout} gantryLevel={gantryLevel} onSelect={choose}
+          <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame} showRequested={requested} showDoorSwing={doorSwing} showProvision={provision} layout={layout} gantryLevel={gantryLevel} onSelect={choose}
             annotations={annotations} addMode={addMode} selectedAnnotation={selectedAnnotation} onAddAnnotation={addAnnotation} onMoveAnnotation={moveAnnotation}
             onSelectAnnotation={id => { setSelectedAnnotation(id); setSelected(null); setPanel('layout'); }} />
           <div className="stage-height"><span>Scenario top</span><strong>≈ {metres(layout === 'sheet' ? heights.sheet : gantryLevel === 'roof' ? heights.pathrunner : heights.lowered)}</strong><small>2.60 m target exceeded</small></div>
@@ -139,6 +203,8 @@ export default function Home() {
           </div>
           <label className="toggle"><input type="checkbox" checked={limit} onChange={e => setLimit(e.target.checked)} /> 2.60 m clearance plane</label>
           {layout === 'sheet' && <label className="toggle gold"><input type="checkbox" checked={requested} onChange={e => setRequested(e.target.checked)} /> Requested upgrades</label>}
+          <label className="toggle"><input type="checkbox" checked={doorSwing} onChange={e => setDoorSwing(e.target.checked)} /> Rear door swing</label>
+          <label className="toggle"><input type="checkbox" checked={provision} onChange={e => setProvision(e.target.checked)} /> Cab provisioning</label>
         </div>
         {layout === 'pathrunner' && <div className="gantry-switch" role="group" aria-label="PathRunner crossarm height">
           <span>Gantry height</span>
@@ -147,21 +213,53 @@ export default function Home() {
         </div>}
         <div className="height-compare" aria-label="Height comparison">
           <div><span>Bare high roof</span><strong>{metres(heights.roof)}</strong><small>Ford published</small></div>
-          <div className={layout === 'sheet' ? 'active' : ''}><span>Rear sensor carrier</span><strong>≈ {metres(heights.sheet)}</strong><small>Representative hardware</small></div>
+          <div className={layout === 'sheet' ? 'active' : ''}><span>Sensors only</span><strong>≈ {metres(heights.sensors)}</strong><small>Lowered mounts; A/C not yet fitted</small></div>
+          <div><span>With rear A/C</span><strong>≈ {metres(heights.ac)}</strong><small>Later addition, becomes the tallest</small></div>
           <div className={layout === 'pathrunner' && gantryLevel === 'roof' ? 'active' : ''}><span>Raised rear gantry</span><strong>≈ {metres(heights.pathrunner)}</strong><small>Photo proportions; unmeasured</small></div>
           <div className={layout === 'pathrunner' && gantryLevel === 'lowered' ? 'active' : ''}><span>Lowered gantry</span><strong>≈ {metres(heights.lowered)}</strong><small>A/C remains highest</small></div>
         </div>
-        <div className="design-conflict"><strong>No 2.60 m solution on this high-roof van.</strong> Lowering the rear crossarm brings the upper sensors to {metres(heights.loweredHead)}, below the {metres(heights.roof)} roof, so the body can block forward views. The assumed roof A/C still reaches {metres(heights.ac)}. Tsai must choose the sensor architecture and parking plan before fabrication.</div>
+        <div className="design-conflict"><strong>No 2.60 m solution on this high-roof van.</strong> Lowering the rear crossarm brings the upper sensors to {metres(heights.loweredHead)}, below the {metres(heights.roof)} roof, so the body can block forward views. With the mounts lowered the sensing package tops out at {metres(heights.sensors)}, but the rear A/C fitted later still reaches {metres(heights.ac)} and becomes the highest point. Tsai must choose the sensor architecture and parking plan before fabrication.</div>
         <div className="model-caption">Drag to orbit · scroll to zoom · select a numbered pin. Ford dimensions set the vehicle envelope; hardware sizes and mounting positions remain conceptual until measured.</div>
       </section>
 
       <aside className="side-pane" aria-label="Build details">
         <nav className="side-tabs" aria-label="Details tabs">
+          <button className={panel === 'phase1' ? 'active' : ''} onClick={() => setPanel('phase1')}>Phase 1</button>
           <button className={panel === 'layout' ? 'active' : ''} onClick={() => setPanel('layout')}>Build sheet</button>
           <button className={panel === 'dimensions' ? 'active' : ''} onClick={() => setPanel('dimensions')}>Dimensions</button>
           <button className={panel === 'sources' ? 'active' : ''} onClick={() => setPanel('sources')}>Sources</button>
         </nav>
         <div className="side-content">
+          {panel === 'phase1' && <>
+            <div className="side-intro"><p className="kicker">01 / Phase one</p><h2>Quoted, waiting on a decision</h2><p>Leonard USA walked the van on 21 October and quoted the phase-one interior on 30 October: air conditioning, insulation and liners, an inverter and wiring, with two crew seats as a separate option. The rear sensor carrier and the sensing package are phase two and are deliberately not in this quote.</p></div>
+
+            <div className="quote-choice">
+              <div className="quote-option"><span>Option A · 368-QUO-100610</span><strong>{money(7449)}</strong><small>A/C, insulation, liners, inverter, wiring</small></div>
+              <div className="quote-option"><span>Option B · 368-QUO-100657</span><strong>{money(11574)}</strong><small>Option A plus two captain seats</small></div>
+            </div>
+            <p className="quote-meta">Both quotes are dated 30 October 2026 and are identical apart from the seat kit, which adds {money(4125)} installed. Listed discounts of $288.97 are already applied and no sales tax is shown.</p>
+            {!showPrices && <p className="quote-hidden">Figures are hidden on the shared link, because this URL has also been sent to competing upfitters. Add <code>?quote=1</code> to the address to show the quoted amounts.</p>}
+
+            {quoteGroups.map(group => <div key={group.title}>
+              <p className={`quote-group-title ${group.seatsOnly ? 'seats' : ''}`}>{group.title}</p>
+              <table className="quote-table"><tbody>
+                {group.lines.map(line => <tr key={line.name}><td>{line.name}</td><td className="num">{money(line.ext)}</td></tr>)}
+                <tr className="subtotal"><td>Subtotal</td><td className="num">{money(group.lines.reduce((sum, line) => sum + line.ext, 0))}</td></tr>
+              </tbody></table>
+            </div>)}
+
+            <div className="part-group" style={{ marginTop: 26 }}><h3>Schedule and terms</h3></div>
+            <dl className="dimension-list">{quoteFacts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+
+            <div className="part-group" style={{ marginTop: 26 }}><h3>Open against this quote</h3></div>
+            {openItems.map(item => <div className={`issue-card ${item.neutral ? 'neutral' : ''}`} key={item.title}><strong>{item.title}</strong><p>{item.body}</p></div>)}
+
+            <div className="secondary-list"><h3>What Georgia Tech still owes Patrick</h3>
+              <ul>{gtOwes.map(line => <li key={line}>{line}</li>)}</ul>
+            </div>
+
+            <div className="issue-card neutral"><strong>Phase two stays open</strong><p>The rear carrier, the LiDAR and camera package, the survey-grade GNSS and the depth cameras are not priced here and are not fixed. The build sheet tab holds that list, and the rack still needs measured equipment dimensions and weights before American Custom Design Vehicles can design or quote it.</p></div>
+          </>}
           {panel === 'layout' && <>
             {(annotations.length > 0 || addMode) && <div className="custom-points">
               <h3>Your points</h3>
@@ -239,6 +337,6 @@ export default function Home() {
         </div>
       </aside>
     </main>
-    <footer className="footer"><span>GT CEE · Sensing Van 503-1705</span><span>Layout review / 29 Sep 2026</span><span>Measure on vehicle before fabrication</span></footer>
+    <footer className="footer"><span>GT CEE · Sensing Van 503-1705</span><span>Phase 1 quote / 4 Nov 2026</span><span>Measure on vehicle before fabrication</span></footer>
   </div>;
 }
