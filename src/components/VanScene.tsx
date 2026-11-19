@@ -18,7 +18,7 @@ export type Part =
   | 'beam' | 'lidar' | 'cameras' | 'gnss' | 'pass'
   | 'frontCams' | 'acRear'
   | 'pvConsole' | 'pvScreen' | 'pvCable' | 'pvPower'
-  | 'seats' | 'desk' | 'rack' | 'power'
+  | 'desk'
   | 'rqLidar' | 'rqCamera' | 'rqDepth' | 'rqGnss' | 'rqTobii'
   | 'pgDeck' | 'pgMast' | 'pgPavement' | 'pgDmi' | 'pgFront'
   | 'p1Liner' | 'p1Ceiling' | 'p1Seats' | 'p1Power'
@@ -93,10 +93,7 @@ export const tags: Record<Part, { label: string; views: View[]; tone: Tone }> = 
   pass:       { label: '05', views: ['exterior', 'roof', 'rear'], tone: 'base' },
   frontCams:  { label: '06', views: ['exterior', 'roof'], tone: 'base' },
   acRear:     { label: '11', views: ['exterior', 'roof'], tone: 'base' },
-  seats:      { label: '07', views: ['interior'], tone: 'base' },
   desk:       { label: '08', views: ['interior'], tone: 'base' },
-  rack:       { label: '09', views: ['interior'], tone: 'base' },
-  power:      { label: '10', views: ['interior'], tone: 'base' },
   rqLidar:    { label: 'A1', views: ['exterior', 'roof'], tone: 'requested' },
   rqGnss:     { label: 'A2', views: ['exterior', 'roof'], tone: 'requested' },
   rqCamera:   { label: 'A3', views: ['exterior', 'roof'], tone: 'requested' },
@@ -343,13 +340,9 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
       amber: std(0xd08a1e, 0.4, 0.2),
       furn: std(0x7d848c, 0.58, 0.18),
       seat: std(0x3f464e, 0.88),
-      screen: new THREE.MeshStandardMaterial({ color: 0x0d1217, roughness: 0.2, emissive: 0x17384a, emissiveIntensity: 0.8 }),
       floor: std(0x2f353b, 0.95),
       deskTop: std(0xb99467, 0.72),
-      cabinet: std(0xd4dce1, 0.66),
       rackFace: std(0x173b53, 0.48),
-      seatFabric: std(0x456b7b, 0.92),
-      battery: std(0xd59b32, 0.55),
       indicator: new THREE.MeshBasicMaterial({ color: 0x46d2a1 }),
       tailRed: std(0x9e2524, 0.42),
     };
@@ -684,60 +677,6 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     [-1, 1].forEach(s => box(inside, M.furn, (CARGO_W - WHEEL_W) / 2, 0.30, 0.99,
       s * (CARGO_W + WHEEL_W) / 4, F + 0.15, REAR_AXLE));
 
-    const concept = new THREE.Group();   // everything beyond the phase-one quote
-    concept.visible = !p1;
-    inside.add(concept);
-
-    const seats = new THREE.Group();
-    [-0.45, 0.45].forEach((x, i) => {
-      const seat = new THREE.Group();
-      box(seat, M.seatFabric, 0.50, 0.12, 0.50, 0, F + 0.42, 0);
-      box(seat, M.seatFabric, 0.50, 0.66, 0.12, 0, F + 0.80, 0.28);
-      box(seat, M.seatFabric, 0.46, 0.10, 0.20, 0, F + 1.19, 0.30);
-      box(seat, M.dark, 0.34, 0.20, 0.34, 0, F + 0.13, 0);
-      box(seat, M.alu, 0.045, 0.24, 0.40, 0.28, F + 0.53, 0);
-      seat.position.set(flip ? 0.55 : x, 0, flip ? 3.05 + i * 1.0 : 4.35);
-      if (flip) seat.rotation.y = -Math.PI / 2;
-      seats.add(seat);
-    });
-    concept.add(seats); parts.seats = seats;
-
-    const desk = new THREE.Group();
-    box(desk, M.deskTop, 1.62, 0.05, 0.72, 0, F + 0.755, 3.47);
-    box(desk, M.cabinet, 1.62, 0.04, 0.58, 0, F + 0.32, 3.47);
-    [-0.78, 0.78].forEach(x => box(desk, M.cabinet, 0.05, 0.78, 0.68, x, F + 0.39, 3.47));
-    box(desk, M.dark, 0.23, 0.46, 0.50, 0.54, F + 0.56, 3.47);
-    box(desk, M.dark, 0.07, 0.42, 0.07, -0.16, F + 0.99, 3.31);
-    const mon = box(desk, M.screen, 0.56, 0.34, 0.025, -0.16, F + 1.28, 3.11);
-    mon.rotation.x = 0.10;
-    box(desk, M.dark, 0.42, 0.02, 0.15, 0.14, F + 0.79, 3.68, false);
-    if (flip) {
-      desk.children.forEach(child => { child.position.z -= 3.47; });
-      desk.rotation.y = Math.PI / 2;
-      desk.position.set(-0.53, 0, 3.40);
-    }
-    concept.add(desk); parts.desk = desk;
-
-    const rack = new THREE.Group();
-    box(rack, M.cabinet, 0.62, 1.10, 0.78, -0.34, F + 0.55, 5.55);
-    for (let i = 0; i < 4; i++) {
-      box(rack, M.rackFace, 0.55, 0.15, 0.035, -0.34, F + 0.24 + i * 0.23, 5.14, false);
-      box(rack, M.indicator, 0.025, 0.025, 0.006, -0.12, F + 0.24 + i * 0.23, 5.119, false);
-      box(rack, M.alu, 0.20, 0.012, 0.007, -0.47, F + 0.24 + i * 0.23, 5.115, false);
-    }
-    if (flip) rack.position.set(-0.24, 0, L - 0.65 - 5.55);
-    concept.add(rack); parts.rack = rack;
-
-    const power = new THREE.Group();
-    box(power, M.rackFace, 0.54, 0.40, 0.48, 0.52, F + 0.22, L - 0.88);
-    box(power, M.battery, 0.38, 0.24, 0.32, 0.52, F + 0.54, L - 0.88);
-    box(power, M.dark, 0.27, 0.035, 0.035, 0.52, F + 0.68, L - 0.88);
-    concept.add(power); parts.power = power;
-
-    box(concept, M.furn, 0.40, 0.46, 1.55, CARGO_W / 2 - 0.20, F + 1.66, L - 1.35);
-    box(concept, M.dark, 0.13, 0.11, 2.30, -(CARGO_W / 2 - 0.07), F + 1.22, 4.60, false);
-    (flip ? [2.75] : [3.60, L - 1.10]).forEach(z => box(concept, M.shell, 0.40, 0.03, 0.10, 0, H - 0.16, z, false));
-
     /* ------------------- phase one, as Leonard quoted it -------------------
        Quotes 368-QUO-100610 / 368-QUO-100657 of 30 Oct 2026: A/C, Legend
        insulation and liners, a 5000 W inverter with 0-gauge wiring, and the
@@ -747,9 +686,9 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
        the LEFT wall, passenger seating longitudinal along the RIGHT wall with
        its cushion facing the aisle, equipment drawers forward on the left,
        and a clear aisle down the middle. Solid = quoted; outlined and
-       translucent = discussed on 21 Oct but on neither quote.              */
+       translucent = discussed on 21 Oct but on neither quote.
+       Every scheme shares this cabin; only the roof equipment changes.     */
     const phaseOne = new THREE.Group();
-    phaseOne.visible = p1;
     inside.add(phaseOne);
 
     const P = {
@@ -823,10 +762,11 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     phaseOne.add(p1Ceiling); parts.p1Ceiling = p1Ceiling;
 
     const cutaway = () => {
-      if (!p1) return;
-      const planView = currentView === 'plan';
-      phaseOneRoof.visible = !planView;
-      acRear.visible = !planView;
+      if (p1) {
+        const planView = currentView === 'plan';
+        phaseOneRoof.visible = !planView;
+        acRear.visible = !planView;
+      }
       linerPos.visible = camera.position.x < 0.25;
       linerNeg.visible = camera.position.x > -0.25;
       linerRear.visible = camera.position.z < L;
@@ -933,7 +873,7 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     /* ---- LEFT wall: workstation, monitor and drawer cabinets (not quoted) ---- */
     const p1Gap = new THREE.Group();
     const deskX = -0.52, deskY = F + 0.76;
-    ghostBox(p1Gap, 0.58, 0.045, deskZ1 - deskZ0, deskX, deskY, (deskZ0 + deskZ1) / 2);            // wooden worktop
+    const worktop = ghostBox(p1Gap, 0.58, 0.045, deskZ1 - deskZ0, deskX, deskY, (deskZ0 + deskZ1) / 2);  // wooden worktop
     ghostBox(p1Gap, 0.60, 0.030, 0.05, deskX, deskY + 0.038, deskZ0 + 0.03);                       // upstand at the wall end
     ghostBox(p1Gap, 0.56, 0.70, 0.035, deskX, F + 0.39, deskZ1 - 0.02);                            // closed end panel, rear
     ghostBox(p1Gap, 0.56, 0.70, 0.035, deskX, F + 0.39, deskZ0 + 0.02);                            // closed end panel, front
@@ -945,7 +885,7 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     }
     ghostBox(p1Gap, 0.05, 0.08, 0.30, -0.80, F + 1.22, deskCenterZ + 0.025);                                      // monitor arm
     ghostBox(p1Gap, 0.035, 0.52, 0.92, -0.755, F + 1.26, deskCenterZ + 0.025);                                    // wall monitor
-    phaseOne.add(p1Gap);
+    phaseOne.add(p1Gap); parts.desk = p1Gap; anchorOn.desk = worktop;
 
     /* ---- quoted power, tucked under the worktop ---- */
     const p1Power = new THREE.Group();
@@ -1190,12 +1130,12 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     box(browCable, M.trim, 0.12, 0.05, 0.10, 0, 2.50, 2.02, false);
     const browCableCurve = new THREE.CatmullRomCurve3([
       V3(0, 2.50, 2.02), V3(0, 2.54, 2.40), V3(-0.30, H - 0.13, 2.90),
-      V3(-0.30, H - 0.13, 5.00), V3(-0.34, H - 0.20, 5.32), V3(-0.34, F + 1.12, 5.34),
+      V3(-0.30, H - 0.13, 4.40), V3(-0.80, H - 0.16, 4.86), V3(-0.82, F + 0.80, 4.90),
     ]);
     add(browCable, new THREE.TubeGeometry(browCableCurve, 64, 0.016, 8, false), M.gold);
     strut(browCable, M.gold, V3(-0.55, H - 0.13, L - 0.52), V3(0.55, H - 0.13, L - 0.52), 0.028);
     const tailCableCurve = new THREE.CatmullRomCurve3([
-      V3(-0.34, H - 0.13, L - 0.52), V3(-0.34, H - 0.30, 5.72), V3(-0.34, F + 1.12, 5.70),
+      V3(-0.34, H - 0.13, L - 0.52), V3(-0.80, H - 0.16, 6.10), V3(-0.82, F + 0.80, 6.06),
     ]);
     add(browCable, new THREE.TubeGeometry(tailCableCurve, 24, 0.016, 8, false), M.gold);
     parts.browCable = browCable;

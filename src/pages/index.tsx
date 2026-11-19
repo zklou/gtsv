@@ -23,7 +23,7 @@ const detail: Record<Part, DeviceSpec> = {
   browTail: { title: 'Tail cameras × 2', items: [...BROW_CAMERAS.filter(c => c.tail).map(cameraLine), 'Brackets on the fixed roof edge, clear of the rear doors', 'Sealed roof gland at each bracket'], status: 'These close the blind strip behind the van, and their fields cross behind the tail. With the assumed lens the road is visible from about 2 m behind the van. They are not on the front frame, so they need their own calibration. Rear-facing lenses collect road spray, so plan for cleaning.' },
   browLidar: { title: 'LiDAR on the centre mast', items: ['LiDAR × 1, colour LiDAR preferred, model TBD', 'Optical centre about 2.87 m above ground, just above the roof line'], status: 'Clear all the way around at the horizon. Road surface is visible from about 1.2 m ahead of the bumper and about 8 m out to each side. The van body blocks the road behind.' },
   browGnss: { title: 'GNSS antenna and IMU', items: ['RTK / PPK GNSS antenna on top of the LiDAR stack', 'IMU on the rigid frame directly below the LiDAR'], status: 'The antenna is the highest point at the front of the van, with open sky above it. Receiver and IMU models are TBD. Check roof and A/C multipath in a field test.' },
-  browCable: { title: 'Cable route to the rack', items: ['Sealed gland through the brow panel', 'Conduit above the ceiling liner, about 5 m to the rack', 'Short second run from the tail cameras to the rack', 'Pull cord left in place for later cables'], status: 'Install this before the ceiling liner closes, so raise it with Leonard at the drop-off strategy meeting. The route is conceptual.' },
+  browCable: { title: 'Cable route to the workstation', items: ['Sealed gland through the brow panel', 'Conduit above the ceiling liner, down the left wall to the workstation', 'Short second run from the tail cameras to the workstation', 'Pull cord left in place for later cables'], status: 'Install this before the ceiling liner closes, so raise it with Leonard at the drop-off strategy meeting. The route is conceptual.' },
   flipHatch: { title: 'Roof opening & transverse hinge', items: ['Reinforced roof opening, illustrative 0.84 × 2.40 m', 'Transverse pivot with two bearing brackets', 'Reversible carrier panel with perimeter seal'], status: 'The hinge sits within the opening to let the entire assembly rotate through 180°. Roof reinforcement, sealing and drainage need a measured design.' },
   flipPackage: { title: 'Complete flip-in sensor assembly', items: ['360 camera and articulated mast', 'GNSS receiver, cylindrical LiDAR and side camera modules', 'Common rigid mounting plates; all equipment flips together', 'Cable run to the hinge with a flexible service loop'], status: 'Geometry follows the supplied reference image. Instrument identities, mass and dimensions are illustrative pending an equipment inventory.' },
   flipLatch: { title: 'Cabin-operated mechanical latches', items: ['Two captive locking pins with reachable release tabs', 'Positive stops at 0° working and 180° stowed', 'Both pins operated from inside the van'], status: 'Release the latches, move the assembly by its grab rail, then latch it at the opposite end stop. The demonstration prevents movement while latched. Pin sizing and manual handling depend on the actual package weight.' },
@@ -35,17 +35,14 @@ const detail: Record<Part, DeviceSpec> = {
   pass: { title: 'Rear cable entries', items: ['Sealed rear roof cable entries × 2', 'Cable runs from both entries to the rear sensor carrier'], status: 'Two separate entries follow the PathRunner reference photo. Exact routing and roof cutouts TBD.' },
   frontCams: { title: 'Three forward cameras', items: ['Forward-facing cameras × 3', 'Low-profile roof rail and mounts'], status: 'Your correction: the front roof object is three cameras, not the A/C. Models and lens choice TBD.' },
   acRear: { title: 'Auxiliary roof A/C', items: ['Outequippro RV air conditioner, 12 V', 'Roof opening and cabin duct', 'Installation labor, 8 hr'], status: `Quoted at ${price('$1,200')} for the unit. Position has to be fixed in the drop-off strategy meeting so it leaves the rear roof clear for the phase-two carrier.` },
-  seats: { title: 'Crew seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: `Quoted on option B at ${price('$4,125')} installed. Crew of four including driver and front passenger; a fifth jump seat was raised on 21 October as a later option.` },
-  desk: { title: 'Operator workstation', items: ['Industrial tower PC × 1', '24 in 1920 × 1080 monitor × 1 with VESA arm', 'Removable 2 TB NVMe drives × 2', '120 V outlets × 4; USB-C ports × 4', 'Adjustable LED work lights × 2'], status: 'Desk and mounting dimensions TBD.' },
-  rack: { title: 'Equipment rack / storage', items: ['NOTE: rear doors are blocked by the sensor frame, so this must load through the side door','Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Rack size and inventory TBD. It currently sits aft of the side door aperture (which ends ~4.06 m), so either the rack moves forward or it has to be built up in place.' },
-  power: { title: 'Independent power', items: ['Auxiliary battery bank', 'Vehicle DC-DC charger', 'Pure sine inverter — quoted at 5000 W', 'Separate UPS for the host PC'], status: 'Only the inverter and its cable kit are quoted. The battery bank, the charger and the UPS are not, so the 2-hour engine-off target on the sheet is unfunded as things stand.' },
+  desk: { title: 'Workstation and storage', items: ['Industrial tower PC × 1', '24 in 1920 × 1080 monitor × 1 with VESA arm', 'Removable 2 TB NVMe drives × 2', '120 V outlets × 4; USB-C ports × 4', 'Adjustable LED work lights × 2', 'Drawer cabinets forward of the worktop', 'Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Discussed on 21 October but on neither quote, so it is drawn translucent. The worktop, wall monitor and drawer cabinets follow the reference build. Desk, rack and mounting dimensions TBD.' },
   rqLidar: { title: 'Colour LiDAR', items: ['Colour LiDAR — model and quantity TBD'], status: 'Handwritten addition on sheet 03; whether it replaces an existing unit is undecided.' },
   rqGnss: { title: 'RTK / PPK GPS', items: ['RTK / PPK-capable GNSS receiver — model TBD'], status: 'Handwritten “very good GPS” / “RTK / PPK” on sheet 03.' },
   rqCamera: { title: 'High-quality camera', items: ['High-quality camera — model and quantity TBD'], status: 'Handwritten addition on sheet 03.' },
   rqDepth: { title: 'Depth camera', items: ['Depth camera — model and quantity TBD'], status: 'Handwritten addition on sheet 03.' },
   pvConsole: { title: 'Cab console rail', items: ['Floor-mounted rail between the front seats', 'Bolt pattern for arms and trays'], status: 'Fitted during the build. This is the base everything in the cab clips onto.' },
   pvScreen: { title: 'Passenger screen mount (later)', items: ['VESA arm on the console rail', 'Screen — added when needed'], status: 'Provisioned only. The arm mount and its bolt pattern go in now; the screen plugs in later.' },
-  pvCable: { title: 'Reserved cable route', items: ['Cable trunking from the rack to the cab console', 'Spare capacity for a screen and keyboard run'], status: 'Pulled during the build so nothing has to be opened up later.' },
+  pvCable: { title: 'Reserved cable route', items: ['Cable trunking from the workstation to the cab console', 'Spare capacity for a screen and keyboard run'], status: 'Pulled during the build so nothing has to be opened up later.' },
   pvPower: { title: 'Cab connector panel', items: ['Power and video outlets at the console', 'Spare ways left free'], status: 'Fitted with the rail so a screen needs one cable, not a rewire.' },
   rqTobii: { title: 'Eye tracking (Tobii)', items: ['Tobii eye-tracking device — model TBD'], status: 'Handwritten addition on sheet 03; cabin device.' },
   pgDeck: { title: 'Raised rear gantry', items: ['Cantilever frame above the rear roof', 'Diagonal support braces', 'Amber roof warning bars × 2'], status: 'Photo reference only; dimensions and structural design TBD.' },
@@ -54,8 +51,8 @@ const detail: Record<Part, DeviceSpec> = {
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
   p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
   p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
-  p1Seats: { title: 'Connected two-person bench', items: ['Tim Van connected two-person seat, shared frame', 'One rigid frame: both seats turn together through 90 degrees', 'DOT-approved three-point belts', 'Two curved floor guides following the bench rotation (concept)'], status: `Option B only, ${price('$4,125')} installed. The reference shows two joined seats on one frame. Use the Bench rotation switch to turn the complete pair by 90 degrees: across the van facing forward, or along the van facing the aisle. Both seats and their shared frame turn together, with two guide shoes following concentric curved floor rails. The guide mechanism is a concept layout.` },
-  p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
+  p1Seats: { title: 'Connected two-person bench', items: ['Tim Van connected two-person seat, shared frame', 'One rigid frame: both seats turn together through 90 degrees', 'DOT-approved three-point belts', 'Two curved floor guides following the bench rotation (concept)'], status: `Option B only, ${price('$4,125')} installed. The reference shows two joined seats on one frame. Use the Bench rotation switch to turn the complete pair by 90 degrees: across the van facing forward, or along the van facing the aisle. Both seats and their shared frame turn together, with two guide shoes following concentric curved floor rails. The guide mechanism is a concept layout. Crew of four including driver and front passenger; the translucent jump seat between the cab seats is a later option raised on 21 October.` },
+  p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter. The DC-DC charger and a UPS for the host PC are not quoted either, so the 2-hour engine-off target on the sheet is unfunded as things stand.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
 
@@ -71,7 +68,7 @@ const lists: { title: string; items: Part[]; tone?: string; layouts?: Layout[] }
   { title: 'Sensor array', items: ['browShell', 'browBar', 'browCams', 'browTail', 'browLidar', 'browGnss', 'browCable', 'acRear'], layouts: ['brow'] },
   { title: 'Flip-in assembly', items: ['flipHatch', 'flipPackage', 'flipLatch', 'flipHandle', 'acRear'], layouts: ['flip'] },
   { title: 'Roof and sensing', items: ['frontCams', 'beam', 'lidar', 'cameras', 'gnss', 'pass', 'acRear'], layouts: ['sheet', 'pathrunner', 'hybrid'] },
-  { title: 'Cabin and systems', items: ['seats', 'desk', 'rack', 'power'] },
+  { title: 'Cabin, same in every scheme', items: ['p1Liner', 'p1Ceiling', 'p1Seats', 'p1Power', 'desk'] },
   { title: 'Provisioned now, used later', items: ['pvConsole', 'pvScreen', 'pvCable', 'pvPower'], tone: 'provision' },
   { title: 'Asked for by the group', items: ['rqLidar', 'rqGnss', 'rqCamera', 'rqDepth', 'rqTobii'], tone: 'requested', layouts: ['sheet', 'pathrunner', 'hybrid'] },
   { title: 'PathRunner reference rig', items: ['pgDeck', 'pgMast', 'pgPavement', 'pgDmi', 'pgFront'], tone: 'reference', layouts: ['sheet'] },
@@ -257,7 +254,7 @@ export default function Home() {
   const flipEndStop = flipSettled && (flipAngle === 0 || flipAngle === 180);
   const metres = (v: number) => `${v.toFixed(2)} m`;
   const money = (v: number) => price(`$${v.toLocaleString('en-US')}`);
-  const detailFor = (p: Part) => (layout === 'brow' && p === 'rack' ? { ...detail.rack, items: detail.rack.items.slice(1), status: 'Rack size and inventory TBD. With the sensors on the brow, the rear doors stay free for loading.' } : null) || (layout === 'pathrunner' && pathrunnerDetail[p]) || (layout === 'flip' && p === 'acRear' ? { ...detail.acRear, title: 'Forward roof A/C', status: 'Moved ahead of the flip hatch in this concept. Its roof projection still determines the stowed vehicle height.' } : detail[p]);
+  const detailFor = (p: Part) => (p === 'desk' && ['sheet', 'pathrunner', 'hybrid'].includes(layout) ? { ...detail.desk, items: ['NOTE: the rear sensor frame blocks the rear doors, so equipment loads through the side door', ...detail.desk.items] } : null) || (layout === 'pathrunner' && pathrunnerDetail[p]) || (layout === 'flip' && p === 'acRear' ? { ...detail.acRear, title: 'Forward roof A/C', status: 'Moved ahead of the flip hatch in this concept. Its roof projection still determines the stowed vehicle height.' } : detail[p]);
   const length = body === 'extended' ? '263.9 in / 6.70 m' : '235.5 in / 5.98 m';
   const roofHeight = body === 'extended' ? '110.4 in / 2.80 m' : '109.6 in / 2.78 m';
 
@@ -402,10 +399,6 @@ export default function Home() {
             <header className="pane-head"><h2>{SCHEMES.find(s => s.id === scheme)?.label}</h2><p>{intro[scheme].summary}</p></header>
             <div className="alert"><strong>{intro[scheme].alertTitle}</strong><p>{intro[scheme].alert}</p></div>
 
-            {first && <Section title="Bench rotation">
-              <Segmented className="fill" label="Connected bench rotation" value={seatSide ? 'aisle' : 'forward'} options={[{ id: 'aisle', label: 'Face the aisle' }, { id: 'forward', label: 'Face forward' }]}
-                onChange={next => { setSeatSide(next === 'aisle'); if (view !== 'interior' && view !== 'plan') setView('plan'); }} />
-            </Section>}
 
             {!first && layout === 'pathrunner' && <Section title="Gantry height">
               <Segmented className="fill" label="PathRunner crossarm height" value={gantryLevel} options={[{ id: 'roof', label: `Raised ${metres(heights.raisedBar)}` }, { id: 'lowered', label: `Lower ${metres(heights.loweredDeck)}` }]} onChange={setGantryLevel} />
@@ -425,6 +418,11 @@ export default function Home() {
               </div>
             </Section>}
 
+            <Section title="Bench rotation">
+              <Segmented className="fill" label="Connected bench rotation" value={seatSide ? 'aisle' : 'forward'} options={[{ id: 'aisle', label: 'Face the aisle' }, { id: 'forward', label: 'Face forward' }]}
+                onChange={next => { setSeatSide(next === 'aisle'); if (view !== 'interior' && view !== 'plan') setView('plan'); }} />
+            </Section>
+
             {annotations.length > 0 && <Section title="Your points" action={<button type="button" className="link" onClick={copyPointsLink}>{copiedPoints ? 'Link copied' : 'Copy link'}</button>}>
               {annotations.map((mark, index) => <div className={`part ${selectedAnnotation === mark.id ? 'open' : ''}`} key={mark.id}>
                 <button type="button" className="row" aria-expanded={selectedAnnotation === mark.id} onClick={() => { setSelectedAnnotation(mark.id); setSelected(null); setView(mark.view); }}>
@@ -439,9 +437,12 @@ export default function Home() {
             </Section>}
 
             {first
-              ? <Section title="What lands in the van">
+              ? <><Section title="What lands in the van">
                 {PHASE1_PARTS.map(id => <PartRow key={id} id={id} item={detail[id]} expanded={selected === id} onToggle={() => choose(id)} />)}
               </Section>
+              <Section title="Discussed, not quoted">
+                <PartRow id="desk" item={detail.desk} expanded={selected === 'desk'} onToggle={() => choose('desk')} />
+              </Section></>
               : lists.filter(l => !l.layouts || l.layouts.includes(layout)).map(list => <Section title={list.title} key={list.title}>
                 {list.items.map(id => <PartRow key={id} id={id} item={detailFor(id)} expanded={selected === id} onToggle={() => choose(id)} />)}
               </Section>)}
