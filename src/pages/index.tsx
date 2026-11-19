@@ -6,6 +6,11 @@ import { BROW_CAMERAS } from '@/components/browArray';
 
 type DeviceSpec = { title: string; items: string[]; status?: string };
 
+const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+const showPrices = params?.get('quote') === '1';
+/** Every amount on the page goes through here, so the shared link never shows one. */
+const price = (amount: string) => showPrices ? amount : '$ — — —';
+
 const facing = (c: typeof BROW_CAMERAS[number]) => c.tail
   ? `back, ${180 - Math.abs(c.az)}° ${c.az < 0 ? 'left' : 'right'}, ${c.pitch}° down`
   : c.az === 0 ? (c.pitch ? `ahead, ${c.pitch}° down` : 'ahead') : `${Math.abs(c.az)}° ${c.az < 0 ? 'left' : 'right'}`;
@@ -29,8 +34,8 @@ const detail: Record<Part, DeviceSpec> = {
   gnss: { title: 'GPS / IMU', items: ['GPS / IMU set', 'Fixed mount on the sensor frame'], status: 'Receiver, antenna and IMU models TBD.' },
   pass: { title: 'Rear cable entries', items: ['Sealed rear roof cable entries × 2', 'Cable runs from both entries to the rear sensor carrier'], status: 'Two separate entries follow the PathRunner reference photo. Exact routing and roof cutouts TBD.' },
   frontCams: { title: 'Three forward cameras', items: ['Forward-facing cameras × 3', 'Low-profile roof rail and mounts'], status: 'Your correction: the front roof object is three cameras, not the A/C. Models and lens choice TBD.' },
-  acRear: { title: 'Auxiliary roof A/C', items: ['Outequippro RV air conditioner, 12 V', 'Roof opening and cabin duct', 'Installation labor, 8 hr'], status: 'Quoted at $1,200 for the unit. Position has to be fixed in the drop-off strategy meeting so it leaves the rear roof clear for the phase-two carrier.' },
-  seats: { title: 'Crew seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: 'Quoted on option B at $4,125 installed. Crew of four including driver and front passenger; a fifth jump seat was raised on 21 October as a later option.' },
+  acRear: { title: 'Auxiliary roof A/C', items: ['Outequippro RV air conditioner, 12 V', 'Roof opening and cabin duct', 'Installation labor, 8 hr'], status: `Quoted at ${price('$1,200')} for the unit. Position has to be fixed in the drop-off strategy meeting so it leaves the rear roof clear for the phase-two carrier.` },
+  seats: { title: 'Crew seats', items: ['Tim Van double captain seat kit', 'DOT-approved three-point belts', 'Pedestal legs and floor mounting'], status: `Quoted on option B at ${price('$4,125')} installed. Crew of four including driver and front passenger; a fifth jump seat was raised on 21 October as a later option.` },
   desk: { title: 'Operator workstation', items: ['Industrial tower PC × 1', '24 in 1920 × 1080 monitor × 1 with VESA arm', 'Removable 2 TB NVMe drives × 2', '120 V outlets × 4; USB-C ports × 4', 'Adjustable LED work lights × 2'], status: 'Desk and mounting dimensions TBD.' },
   rack: { title: 'Equipment rack / storage', items: ['NOTE: rear doors are blocked by the sensor frame, so this must load through the side door','Existing equipment rack — reuse if suitable', 'Overhead cabinet × 1', 'Fixed cable tray', 'Non-slip floor protection', 'Geotab terminal'], status: 'Rack size and inventory TBD. It currently sits aft of the side door aperture (which ends ~4.06 m), so either the rack moves forward or it has to be built up in place.' },
   power: { title: 'Independent power', items: ['Auxiliary battery bank', 'Vehicle DC-DC charger', 'Pure sine inverter — quoted at 5000 W', 'Separate UPS for the host PC'], status: 'Only the inverter and its cable kit are quoted. The battery bank, the charger and the UPS are not, so the 2-hour engine-off target on the sheet is unfunded as things stand.' },
@@ -49,7 +54,7 @@ const detail: Record<Part, DeviceSpec> = {
   pgDmi: { title: 'DMI wheel encoder', items: ['Rear wheel DMI encoder'], status: 'PathRunner reference option; check the old van inventory before buying.' },
   p1Liner: { title: 'Wall, door and wheel liners', items: ['Legend Transit 148 HR thermal shield kit, 85 pc', 'Legend 744-114-2613.HR wall liner', 'Ford Transit HR DuraTherm door liner', 'Transit wheel liners, 2 pc'], status: 'Quoted. The vendor argued the A/C performs poorly without this, which is why insulation sits inside phase one at all. Panel extents follow the reference build; the kits are body-length specific and the body length is still unconfirmed.' },
   p1Ceiling: { title: 'Ceiling liner and lighting', items: ['Legend 745-114-2613.HR DuraTherm ceiling', 'Recessed LED downlights, from the reference build'], status: 'Ceiling panel is quoted. The downlights are shown because the reference build has them; they are not a line item on either quote.' },
-  p1Seats: { title: 'Connected two-person bench', items: ['Tim Van connected two-person seat, shared frame', 'One rigid frame: both seats turn together through 90 degrees', 'DOT-approved three-point belts', 'Two curved floor guides following the bench rotation (concept)'], status: 'Option B only, $4,125 installed. The reference shows two joined seats on one frame. Use the Bench rotation switch to turn the complete pair by 90 degrees: across the van facing forward, or along the van facing the aisle. Both seats and their shared frame turn together, with two guide shoes following concentric curved floor rails. The guide mechanism is a concept layout.' },
+  p1Seats: { title: 'Connected two-person bench', items: ['Tim Van connected two-person seat, shared frame', 'One rigid frame: both seats turn together through 90 degrees', 'DOT-approved three-point belts', 'Two curved floor guides following the bench rotation (concept)'], status: `Option B only, ${price('$4,125')} installed. The reference shows two joined seats on one frame. Use the Bench rotation switch to turn the complete pair by 90 degrees: across the van facing forward, or along the van facing the aisle. Both seats and their shared frame turn together, with two guide shoes following concentric curved floor rails. The guide mechanism is a concept layout.` },
   p1Power: { title: 'Inverter and wiring', items: ['Go Power! 80179 pure sine inverter, 5000 W', 'Tauk 1/0 cable kit, 250 A fuse holder, 40 ft'], status: 'The ghosted box is the auxiliary battery, which neither quote contains. Without it the inverter has no source with the engine off. The 250 A fuse also caps the kit near 3 kW against a 5000 W inverter.' },
   pgFront: { title: 'Front bumper carrier', items: ['Front bumper carrier', 'RetroTek-D unit, if road-marking retroreflectivity is needed'], status: 'PathRunner reference option; not specified on our sheet.' },
 };
@@ -94,12 +99,12 @@ const quoteGroups: QuoteGroup[] = [
     { name: 'Tauk 1/0 battery cable kit, 250 A fuse holder, 40 ft', ext: 85 },
   ] },
   { title: 'Installation', lines: [
-    { name: 'Installation labor, 14 hr at $75', ext: 1050 },
+    { name: `Installation labor, 14 hr at ${price('$75')}`, ext: 1050 },
     { name: 'Installation supplies, 10 units', ext: 125 },
   ] },
   { title: 'Seating, option B only', seatsOnly: true, lines: [
     { name: 'Tim Van double captain seat kit, DOT-approved belts', ext: 3750 },
-    { name: 'Installation labor, 5 hr at $75', ext: 375 },
+    { name: `Installation labor, 5 hr at ${price('$75')}`, ext: 375 },
   ] },
 ];
 
@@ -118,7 +123,7 @@ const openItems: { title: string; body: string; neutral?: boolean }[] = [
   { title: 'A/C must not take the phase-two roof', body: 'The site visit flagged that the A/C has to leave clearance for the rear sensor carrier. That depends on the sensor mounting height, which has not been sent to Patrick yet. Fix the roof position in the drop-off strategy meeting, not after.' },
   { title: 'Liner kits are body-length specific', body: 'The Legend parts read "Transit 148 HR". Both the 235.5 in and the 263.9 in bodies use the same 148 in wheelbase, so that part number does not confirm the fit. Confirm the kits match the actual body length before the order goes in.', neutral: true },
   { title: 'Shelving and workstation are not priced', body: 'The 21 October scope included compact modular shelving and possible reuse of the old desk. Neither quote contains them, so either they come later or they need to be added before the van goes in.', neutral: true },
-  { title: 'Seat pricing has a second source', body: 'Option B adds $4,125 for two seats installed, about $2,063 each, with DOT-approved belts. MobilityWorks gave a verbal $1,100 to $1,300 per seat with labor unclear, and Kim Coots reached out on 19 October. Worth one written comparison before committing, against the saving of running a single vendor.', neutral: true },
+  { title: 'Seat pricing has a second source', body: `Option B adds ${price('$4,125')} for two seats installed, about ${price('$2,063')} each, with DOT-approved belts. MobilityWorks gave a verbal ${price('$1,100')} to ${price('$1,300')} per seat with labor unclear, and Kim Coots reached out on 19 October. Worth one written comparison before committing, against the saving of running a single vendor.`, neutral: true },
 ];
 
 const gtOwes = [
@@ -127,8 +132,6 @@ const gtOwes = [
   'Read the old inverter label and settle the 800 W versus 1800 W discrepancy in the site-visit recordings.',
 ];
 
-const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
-const showPrices = params?.get('quote') === '1';
 const startLayout = (['brow', 'flip', 'sheet', 'pathrunner'] as Layout[])
   .find(v => v === params?.get('layout')) ?? 'brow';
 const startView = (['exterior', 'roof', 'plan', 'interior', 'rear', 'front', 'cover'] as View[])
@@ -253,7 +256,7 @@ export default function Home() {
   const flipSettled = Math.abs(flipMotion.angle - flipAngle) < 0.05;
   const flipEndStop = flipSettled && (flipAngle === 0 || flipAngle === 180);
   const metres = (v: number) => `${v.toFixed(2)} m`;
-  const money = (v: number) => showPrices ? `$${v.toLocaleString('en-US')}` : '$ — — —';
+  const money = (v: number) => price(`$${v.toLocaleString('en-US')}`);
   const detailFor = (p: Part) => (layout === 'brow' && p === 'rack' ? { ...detail.rack, items: detail.rack.items.slice(1), status: 'Rack size and inventory TBD. With the sensors on the brow, the rear doors stay free for loading.' } : null) || (layout === 'pathrunner' && pathrunnerDetail[p]) || (layout === 'flip' && p === 'acRear' ? { ...detail.acRear, title: 'Forward roof A/C', status: 'Moved ahead of the flip hatch in this concept. Its roof projection still determines the stowed vehicle height.' } : detail[p]);
   const length = body === 'extended' ? '263.9 in / 6.70 m' : '235.5 in / 5.98 m';
   const roofHeight = body === 'extended' ? '110.4 in / 2.80 m' : '109.6 in / 2.78 m';
@@ -450,8 +453,8 @@ export default function Home() {
               <div><span>Option A</span><strong>{money(7449)}</strong><small>368-QUO-100610. A/C, insulation, liners, inverter, wiring</small></div>
               <div><span>Option B</span><strong>{money(11574)}</strong><small>368-QUO-100657. Option A plus two captain seats</small></div>
             </div>
-            <p className="fine">Both quotes are dated 30 October 2026 and are identical apart from the seat kit, which adds {money(4125)} installed. Listed discounts of $288.97 are already applied and no sales tax is shown.</p>
-            {!showPrices && <p className="fine notice">Figures are hidden on the shared link, because this URL has also been sent to competing upfitters. Add <code>?quote=1</code> to the address to show the quoted amounts.</p>}
+            <p className="fine">Both quotes are dated 30 October 2026 and are identical apart from the seat kit, which adds {money(4125)} installed. Listed discounts of {price('$288.97')} are already applied and no sales tax is shown.</p>
+            {!showPrices && <p className="fine notice">Quoted amounts are hidden on this shared link.</p>}
 
             <Section title="Line items">
               {quoteGroups.map(group => <Fold key={group.title} title={group.title} aside={<span className="num">{money(group.lines.reduce((sum, line) => sum + line.ext, 0))}</span>}>
