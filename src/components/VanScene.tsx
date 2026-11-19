@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { FLIP, openRoof } from './flipMechanism';
+import { BROW, BROW_CAMERAS, browProfile } from './browArray';
 
-export type View = 'exterior' | 'roof' | 'plan' | 'interior' | 'rear';
+export type View = 'exterior' | 'roof' | 'plan' | 'interior' | 'rear' | 'front' | 'cover';
 export type Body = 'extended' | 'long';
-export type Layout = 'sheet' | 'pathrunner' | 'hybrid';
+export type Layout = 'sheet' | 'pathrunner' | 'hybrid' | 'flip' | 'brow';
 export type GantryLevel = 'roof' | 'lowered';
 export type Phase = 'phase1' | 'full';
 export type Tone = 'base' | 'requested' | 'reference' | 'provision';
@@ -15,7 +17,9 @@ export type Part =
   | 'seats' | 'desk' | 'rack' | 'power'
   | 'rqLidar' | 'rqCamera' | 'rqDepth' | 'rqGnss' | 'rqTobii'
   | 'pgDeck' | 'pgMast' | 'pgPavement' | 'pgDmi' | 'pgFront'
-  | 'p1Liner' | 'p1Ceiling' | 'p1Seats' | 'p1Power';
+  | 'p1Liner' | 'p1Ceiling' | 'p1Seats' | 'p1Power'
+  | 'flipHatch' | 'flipPackage' | 'flipLatch' | 'flipHandle'
+  | 'browShell' | 'browBar' | 'browCams' | 'browLidar' | 'browGnss' | 'browCable' | 'browTail';
 export type Annotation = { id: string; name: string; point: [number, number, number]; view: View };
 
 /* ------------------------------------------------------------------
@@ -70,7 +74,7 @@ export function heightCases(body: Body) {
   const pathrunner = Math.max(ac, roof + GANTRY_FRAME_RISE + GANTRY_MAST_RISE);
   const loweredHead = GANTRY_LOW_Y + GANTRY_MAST_RISE;
   const lowered = Math.max(roof, ac, loweredHead);
-  return { roof, ac, sensors, frontCams, rearCarrier, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead };
+  return { roof, ac, sensors, frontCams, rearCarrier, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead, browFairing: BROW.fairingTop, browTop: BROW.top };
 }
 
 /* cowl and header define the windscreen plane; reused for the glass */
@@ -107,6 +111,17 @@ export const tags: Record<Part, { label: string; views: View[]; tone: Tone }> = 
   p1Ceiling:  { label: 'Q2', views: ['interior'], tone: 'base' },
   p1Seats:    { label: 'Q3', views: ['interior'], tone: 'base' },
   p1Power:    { label: 'Q4', views: ['interior'], tone: 'base' },
+  flipHatch:  { label: 'F1', views: ['exterior', 'roof', 'rear', 'interior', 'plan'], tone: 'base' },
+  flipPackage:{ label: 'F2', views: ['exterior', 'roof', 'rear', 'interior', 'plan'], tone: 'base' },
+  flipLatch:  { label: 'F3', views: ['interior', 'plan'], tone: 'base' },
+  flipHandle: { label: 'F4', views: ['interior', 'plan'], tone: 'base' },
+  browShell:  { label: 'B1', views: ['front'], tone: 'base' },
+  browBar:    { label: 'B2', views: ['front'], tone: 'base' },
+  browCams:   { label: 'B3', views: ['front', 'cover', 'roof'], tone: 'base' },
+  browLidar:  { label: 'B4', views: ['front', 'roof'], tone: 'base' },
+  browGnss:   { label: 'B5', views: ['front', 'roof'], tone: 'base' },
+  browCable:  { label: 'B6', views: ['interior', 'plan'], tone: 'base' },
+  browTail:   { label: 'B7', views: ['exterior', 'roof', 'cover'], tone: 'base' },
 };
 
 /* --------------------- body silhouette, nose to tail --------------------- */
@@ -207,6 +222,10 @@ type Props = {
   phase: Phase;
   seatSide: boolean;
   gantryLevel: GantryLevel;
+  flipAngle: number;
+  flipLocked: boolean;
+  showFlipEnvelope: boolean;
+  onFlipMotion: (angle: number, height: number) => void;
   onSelect: (part: Part) => void;
   annotations: Annotation[];
   addMode: boolean;
@@ -217,7 +236,7 @@ type Props = {
 };
 type Screen = { x: number; y: number; ax: number; ay: number; visible: boolean };
 
-export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, seatSide, gantryLevel, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
+export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, seatSide, gantryLevel, flipAngle, flipLocked, showFlipEnvelope, onFlipMotion, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [positions, setPositions] = useState<Record<string, Screen>>({});
@@ -226,8 +245,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
   const [annotationPositions, setAnnotationPositions] = useState<Record<string, Screen>>({});
   const annotationRef = useRef(annotations);
   annotationRef.current = annotations;
-  const actionRef = useRef({ onAddAnnotation, onMoveAnnotation });
-  actionRef.current = { onAddAnnotation, onMoveAnnotation };
+  const actionRef = useRef({ onAddAnnotation, onMoveAnnotation, onFlipMotion });
+  actionRef.current = { onAddAnnotation, onMoveAnnotation, onFlipMotion };
   const dragRef = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const canvasDownRef = useRef<[number, number] | null>(null);
   const api = useRef<{
@@ -238,6 +257,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     setDoorSwing: (on: boolean) => void;
     setProvision: (on: boolean) => void;
     setSeatFacing: (side: boolean) => void;
+    setFlip: (angle: number) => void;
+    setFlipLocked: (locked: boolean) => void;
+    setFlipEnvelope: (visible: boolean) => void;
     highlight: (p: Part | null) => void;
     addAt: (x: number, y: number) => void;
     moveAt: (id: string, x: number, y: number) => void;
@@ -254,6 +276,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     const pr = layout === 'pathrunner';
     const hy = layout === 'hybrid';
     const p1 = phase === 'phase1';
+    const flip = layout === 'flip' && !p1;
+    const brow = layout === 'brow' && !p1;
+    const flipZ = L - FLIP.rearOffset;
 
     const scene = new THREE.Scene();
     const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -368,7 +393,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     /* ------------------------------ shell ------------------------------ */
     const exterior = new THREE.Group();
     scene.add(exterior);
-    const shell = add(exterior, shellGeometry(b), M.paint);
+    const bodyGeometry = shellGeometry(b);
+    const shell = add(exterior, flip ? openRoof(bodyGeometry, H, flipZ) : bodyGeometry, M.paint);
     shell.receiveShadow = true;
 
     // windscreen, sitting on the cowl-to-header plane
@@ -488,12 +514,12 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       box(frontCams, M.sensor, 0.15, 0.105, 0.20, x, H + 0.0875, frontCamZ);
       tube(frontCams, M.lens, 0.042, 0.03, x, H + 0.0875, frontCamZ - 0.105, 'z');
     });
-    frontCams.visible = !p1;
+    frontCams.visible = !p1 && !flip && !brow;
     scene.add(frontCams); parts.frontCams = frontCams;
 
     // A/C is a later addition, on the rear third of the roof
     const acRear = new THREE.Group();
-    const az = acRearZ(b);
+    const az = flip ? 2.84 : acRearZ(b);
     box(acRear, M.trim, AC.w + 0.06, 0.025, AC.d + 0.06, 0, H + 0.013, az, false);
     box(acRear, M.shell, AC.w, AC.h, AC.d, 0, H + 0.025 + AC.h / 2, az);
     for (let i = 0; i < 5; i++) box(acRear, M.dark, 0.025, 0.08, AC.d * 0.78, -0.28 + i * 0.14, H + 0.025 + AC.h * 0.72, az, false);
@@ -503,7 +529,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     // User-corrected sheet: A/C forward, existing sensor package carried aft.
     // This is a planning envelope; the exact rear bracket is not dimensioned.
     const sheetRear = new THREE.Group();
-    sheetRear.visible = !pr && !p1;
+    sheetRear.visible = !pr && !p1 && !flip && !brow;
     scene.add(sheetRear);
     const rearBarY = H - REAR_BAR_DROP;
     const postX = 0.78;          // inboard of the rear track, clear of the wheels
@@ -556,6 +582,122 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       parts.gnss = rearGnss; parts.pass = rearPass;
     }
 
+    /* ---- Complete sensor assembly: manual 180° flip into the cabin. ----
+       The transverse pivot sits inside an elongated roof aperture so the
+       full swept package passes through it. All instruments share one rotor.
+       Opposed grab rails and latch releases remain reachable from the cabin.
+    */
+    const flipFrame = new THREE.Group();
+    flipFrame.visible = flip;
+    scene.add(flipFrame);
+    const pivotY = H + FLIP.pivotRise;
+    const halfOpening = FLIP.openingLength / 2;
+    [-1, 1].forEach(s => {
+      box(flipFrame, M.alu, 0.075, 0.075, FLIP.openingLength + 0.15,
+        s * (FLIP.openingWidth / 2 + 0.0375), pivotY, flipZ);
+      box(flipFrame, M.alu, FLIP.openingWidth, 0.075, 0.075,
+        0, pivotY, flipZ + s * (halfOpening + 0.0375));
+      box(flipFrame, M.trim, 0.035, 0.018, FLIP.openingLength,
+        s * (FLIP.openingWidth / 2 - 0.012), H + 0.012, flipZ);
+      box(flipFrame, M.gold, 0.16, 0.18, 0.20, s * 0.51, pivotY, flipZ);
+    });
+    tube(flipFrame, M.alu, 0.033, 1.12, 0, pivotY, flipZ, 'x');
+    parts.flipHatch = flipFrame;
+
+    const flipRotor = new THREE.Group();
+    flipRotor.visible = flip;
+    flipRotor.position.set(0, pivotY, flipZ);
+    let flipTarget = -flipAngle * Math.PI / 180;
+    flipRotor.rotation.x = flipTarget;
+    scene.add(flipRotor);
+    box(flipRotor, M.shell, FLIP.panelWidth, 0.045, FLIP.panelLength, 0, 0, 0);
+    [-0.28, 0.28].forEach(x => box(flipRotor, M.alu, 0.045, 0.06, FLIP.panelLength - 0.10, x, 0.035, 0));
+
+    const flipPackage = new THREE.Group();
+    flipRotor.add(flipPackage);
+    // Lower mounting plate, shock standoffs and finned cylindrical LiDAR.
+    box(flipPackage, M.alu, 0.46, 0.035, 0.50, 0, 0.08, 0);
+    [-0.17, 0.17].forEach(x => [-0.18, 0.18].forEach(z => {
+      tube(flipPackage, M.alu, 0.018, 0.12, x, 0.15, z);
+      tube(flipPackage, M.dark, 0.027, 0.032, x, 0.17, z);
+    }));
+    tube(flipPackage, M.alu, 0.17, 0.14, 0, 0.27, 0);
+    tube(flipPackage, M.lens, 0.164, 0.115, 0, 0.395, 0);
+    tube(flipPackage, M.alu, 0.17, 0.045, 0, 0.475, 0);
+    for (let i = 0; i < 20; i++) {
+      const a = i * Math.PI / 10;
+      const fin = box(flipPackage, M.alu, 0.016, 0.13, 0.06,
+        Math.cos(a) * 0.164, 0.27, Math.sin(a) * 0.164);
+      fin.rotation.y = -a;
+    }
+    [-0.205, 0.205].forEach(x => {
+      box(flipPackage, M.sensor, 0.05, 0.145, 0.12, x, 0.17, 0.09);
+      tube(flipPackage, M.lens, 0.025, 0.015, x, 0.17, 0.02, 'z');
+    });
+    [-0.18, 0.18].forEach(x => [-0.17, 0.17].forEach(z =>
+      tube(flipPackage, M.alu, 0.012, 0.10, x, 0.54, z)));
+    box(flipPackage, M.deskTop, 0.46, 0.025, 0.44, 0, 0.595, 0);
+    tube(flipPackage, M.sensor, 0.065, 0.17, 0.10, 0.695, 0.08);
+    // Articulated mast and portrait 360 camera, following the supplied photo.
+    tube(flipPackage, M.alu, 0.028, 0.27, -0.10, 0.745, -0.07);
+    tube(flipPackage, M.alu, 0.047, 0.07, -0.10, 0.86, -0.07, 'x');
+    box(flipPackage, M.dark, 0.09, 0.055, 0.10, -0.10, 0.91, -0.07);
+    box(flipPackage, M.sensor, 0.09, 0.22, 0.055, -0.10, 1.05, -0.07);
+    tube(flipPackage, M.lens, 0.036, 0.025, -0.10, 1.105, -0.11, 'z');
+    tube(flipPackage, M.lens, 0.036, 0.025, -0.10, 1.105, -0.03, 'z');
+    box(flipPackage, M.indicator, 0.028, 0.009, 0.004, -0.10, 1.08, -0.10);
+    const cableCurve = new THREE.CatmullRomCurve3([
+      V3(-0.15, 1.0, -0.07), V3(-0.22, 0.74, -0.06),
+      V3(-0.22, 0.34, 0.12), V3(-0.26, 0.10, 0.18), V3(-0.32, 0.04, 0),
+    ]);
+    add(flipPackage, new THREE.TubeGeometry(cableCurve, 24, 0.009, 6, false), M.dark);
+    parts.flipPackage = flipPackage;
+
+    const flipHandles = new THREE.Group();
+    flipRotor.add(flipHandles);
+    // Paired rails: one faces down into the cabin at each locked endpoint.
+    [-1, 1].forEach(s => {
+      [-0.20, 0.20].forEach(x =>
+        strut(flipHandles, M.alu, V3(x, s * 0.04, 0.74), V3(x, s * 0.68, 0.74), 0.025));
+      tube(flipHandles, M.gold, 0.022, 0.44, 0, s * 0.68, 0.74, 'x');
+    });
+    parts.flipHandle = flipHandles;
+
+    const flipLatches = new THREE.Group();
+    flipFrame.add(flipLatches);
+    const latchMaterial = std(flipLocked ? 0x37896d : 0xba6545, 0.5, 0.35);
+    owned.push(latchMaterial);
+    const latchPins: THREE.Mesh[] = [];
+    [-1, 1].forEach(s => {
+      // Captive pins at the shaft, released by simple rods from inside.
+      latchPins.push(tube(flipLatches, latchMaterial, 0.015, 0.16, s * 0.49, pivotY + 0.055, flipZ + 0.065, 'x'));
+      strut(flipLatches, M.alu, V3(s * 0.53, pivotY, flipZ + 0.065), V3(s * 0.53, H - 0.66, flipZ + 0.065), 0.018);
+      box(flipLatches, latchMaterial, 0.12, 0.08, 0.06, s * 0.53, H - 0.66, flipZ + 0.065);
+    });
+    parts.flipLatch = flipLatches;
+
+    const flipEnvelope = new THREE.Group();
+    flipEnvelope.visible = flip && showFlipEnvelope;
+    scene.add(flipEnvelope);
+    const envelopeMaterial = new THREE.MeshBasicMaterial({ color: 0x2f8c97, transparent: true, opacity: 0.075, depthWrite: false, side: THREE.DoubleSide });
+    const sweepMaterial = new THREE.LineDashedMaterial({ color: 0x2f8c97, dashSize: 0.055, gapSize: 0.035, transparent: true, opacity: 0.7 });
+    owned.push(envelopeMaterial, sweepMaterial);
+    const envelope = box(flipEnvelope, envelopeMaterial, FLIP.panelWidth, FLIP.sensorTop + 0.10,
+      FLIP.openingLength, 0, pivotY - FLIP.sensorTop / 2, flipZ, false);
+    const envelopeEdges = new THREE.LineSegments(keep(new THREE.EdgesGeometry(envelope.geometry)), sweepMaterial);
+    envelopeEdges.position.copy(envelope.position);
+    envelopeEdges.computeLineDistances();
+    flipEnvelope.add(envelopeEdges);
+    [-0.39, 0.39].forEach(x => {
+      const points = Array.from({ length: 65 }, (_, i) => {
+        const a = i * Math.PI / 64;
+        return V3(x, pivotY + Math.cos(a) * 1.17, flipZ - Math.sin(a) * 1.17);
+      });
+      const arc = new THREE.Line(keep(new THREE.BufferGeometry().setFromPoints(points)), sweepMaterial);
+      arc.computeLineDistances();
+      flipEnvelope.add(arc);
+    });
+
     /* ----------------------------- interior ----------------------------- */
     const inside = new THREE.Group();
     inside.visible = false;
@@ -605,12 +747,16 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     inside.add(concept);
 
     const seats = new THREE.Group();
-    [-0.45, 0.45].forEach(x => {
-      box(seats, M.seatFabric, 0.50, 0.12, 0.50, x, F + 0.42, 4.35);
-      box(seats, M.seatFabric, 0.50, 0.66, 0.12, x, F + 0.80, 4.63);
-      box(seats, M.seatFabric, 0.46, 0.10, 0.20, x, F + 1.19, 4.65);
-      box(seats, M.dark, 0.34, 0.20, 0.34, x, F + 0.13, 4.35);
-      box(seats, M.alu, 0.045, 0.24, 0.40, x + 0.28, F + 0.53, 4.35);
+    [-0.45, 0.45].forEach((x, i) => {
+      const seat = new THREE.Group();
+      box(seat, M.seatFabric, 0.50, 0.12, 0.50, 0, F + 0.42, 0);
+      box(seat, M.seatFabric, 0.50, 0.66, 0.12, 0, F + 0.80, 0.28);
+      box(seat, M.seatFabric, 0.46, 0.10, 0.20, 0, F + 1.19, 0.30);
+      box(seat, M.dark, 0.34, 0.20, 0.34, 0, F + 0.13, 0);
+      box(seat, M.alu, 0.045, 0.24, 0.40, 0.28, F + 0.53, 0);
+      seat.position.set(flip ? 0.55 : x, 0, flip ? 3.05 + i * 1.0 : 4.35);
+      if (flip) seat.rotation.y = -Math.PI / 2;
+      seats.add(seat);
     });
     concept.add(seats); parts.seats = seats;
 
@@ -623,6 +769,11 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     const mon = box(desk, M.screen, 0.56, 0.34, 0.025, -0.16, F + 1.28, 3.11);
     mon.rotation.x = 0.10;
     box(desk, M.dark, 0.42, 0.02, 0.15, 0.14, F + 0.79, 3.68, false);
+    if (flip) {
+      desk.children.forEach(child => { child.position.z -= 3.47; });
+      desk.rotation.y = Math.PI / 2;
+      desk.position.set(-0.53, 0, 3.40);
+    }
     concept.add(desk); parts.desk = desk;
 
     const rack = new THREE.Group();
@@ -632,6 +783,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       box(rack, M.indicator, 0.025, 0.025, 0.006, -0.12, F + 0.24 + i * 0.23, 5.119, false);
       box(rack, M.alu, 0.20, 0.012, 0.007, -0.47, F + 0.24 + i * 0.23, 5.115, false);
     }
+    if (flip) rack.position.set(-0.24, 0, L - 0.65 - 5.55);
     concept.add(rack); parts.rack = rack;
 
     const power = new THREE.Group();
@@ -642,7 +794,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
     box(concept, M.furn, 0.40, 0.46, 1.55, CARGO_W / 2 - 0.20, F + 1.66, L - 1.35);
     box(concept, M.dark, 0.13, 0.11, 2.30, -(CARGO_W / 2 - 0.07), F + 1.22, 4.60, false);
-    [3.60, L - 1.10].forEach(z => box(concept, M.shell, 0.40, 0.03, 0.10, 0, H - 0.16, z, false));
+    (flip ? [2.75] : [3.60, L - 1.10]).forEach(z => box(concept, M.shell, 0.40, 0.03, 0.10, 0, H - 0.16, z, false));
 
     /* ------------------- phase one, as Leonard quoted it -------------------
        Quotes 368-QUO-100610 / 368-QUO-100657 of 30 Oct 2026: A/C, Legend
@@ -1008,6 +1160,118 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       parts.beam = pgDeck;
     }
 
+    /* ---- Windshield-brow array: every exterior sensor on one rigid frame. ----
+       The printed fairing only keeps weather out. The bar, outriggers and mast
+       carry the instruments, so their relative calibration does not depend on it.
+    */
+    const browArray = new THREE.Group();
+    browArray.visible = brow;
+    scene.add(browArray);
+
+    const browShellMat = new THREE.MeshPhysicalMaterial({ color: 0xf1f3f4, roughness: 0.52, clearcoat: 0.2, transparent: true });
+    const browEdgeMat = new THREE.LineBasicMaterial({ color: 0x8f9aa2 });
+    owned.push(browShellMat, browEdgeMat);
+    const browShape = new THREE.Shape();
+    browProfile.forEach(([z, y], i) => { if (i) browShape.lineTo(z, y); else browShape.moveTo(z, y); });
+    browShape.closePath();
+    const browGeometry = new THREE.ExtrudeGeometry(browShape, { depth: BROW.width, bevelEnabled: false });
+    browGeometry.rotateY(-Math.PI / 2);
+    browGeometry.translate(BROW.width / 2, 0, 0);
+    const browPos = browGeometry.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < browPos.count; i++) {
+      browPos.setX(i, browPos.getX(i) * (1 - BROW.taper * (BROW.rearZ - browPos.getZ(i))));
+    }
+    browGeometry.computeVertexNormals();
+    const browShell = new THREE.Group();
+    add(browShell, browGeometry, browShellMat);
+    browShell.add(new THREE.LineSegments(keep(new THREE.EdgesGeometry(browGeometry, 25)), browEdgeMat));
+    browArray.add(browShell); parts.browShell = browShell;
+
+    const browBar = new THREE.Group();
+    box(browBar, M.alu, BROW.barLength, 0.05, 0.08, 0, BROW.barY, BROW.barZ);
+    box(browBar, M.alu, 0.16, 0.05, 0.14, 0, BROW.barY, BROW.mastZ - 0.02);
+    [-1, 1].forEach(s => {
+      strut(browBar, M.alu, V3(s * BROW.barLength / 2, BROW.barY, BROW.barZ), V3(s * BROW.earX, BROW.earY, BROW.earZ), 0.04);
+      strut(browBar, M.alu, V3(s * 0.55, BROW.barY, BROW.barZ), V3(s * 0.55, 2.50, 2.02), 0.04);
+      box(browBar, M.alu, 0.12, 0.02, 0.12, s * 0.55, 2.50, 2.02);
+    });
+    tube(browBar, M.alu, 0.03, BROW.mastTop - BROW.barY, 0, (BROW.mastTop + BROW.barY) / 2, BROW.mastZ);
+    strut(browBar, M.alu, V3(0, BROW.mastTop - 0.05, BROW.mastZ), V3(0, 2.665, 2.21), 0.03);
+    box(browBar, M.alu, 0.12, 0.02, 0.10, 0, 2.665, 2.21);
+    browArray.add(browBar); parts.browBar = browBar;
+
+    const browCams = new THREE.Group();
+    const browTail = new THREE.Group();
+    const camY = (c: typeof BROW_CAMERAS[number]) => c.tail ? H + c.y : c.y;
+    const camZ = (c: typeof BROW_CAMERAS[number]) => c.tail ? L + c.z : c.z;
+    BROW_CAMERAS.forEach(c => {
+      const head = new THREE.Group();
+      head.position.set(c.x, camY(c), camZ(c));
+      head.rotation.order = 'YXZ';
+      head.rotation.y = -c.az * Math.PI / 180;
+      head.rotation.x = -c.pitch * Math.PI / 180;
+      box(head, M.sensor, 0.10, 0.08, 0.12, 0, 0, 0.055);
+      box(head, M.dark, 0.115, 0.095, 0.008, 0, 0, -0.004, false);
+      tube(head, M.alu, 0.034, 0.012, 0, 0, -0.012, 'z');
+      tube(head, M.lens, 0.028, 0.022, 0, 0, -0.024, 'z');
+      if (!c.tail) { browCams.add(head); return; }
+      // Tail cameras: bracket on the fixed roof edge, clear of the rear doors, with a rain hood.
+      box(head, M.trim, 0.125, 0.008, 0.13, 0, 0.05, 0.02, false);
+      browTail.add(head);
+      box(browTail, M.alu, 0.14, 0.012, 0.18, c.x, H + 0.006, L - 0.38);
+      strut(browTail, M.alu, V3(c.x, H + 0.012, L - 0.38), V3(c.x, camY(c) - 0.01, camZ(c) - 0.06), 0.03);
+      box(browTail, M.trim, 0.09, 0.03, 0.08, c.x, H + 0.015, L - 0.52, false);
+    });
+    browArray.add(browCams, browTail); parts.browCams = browCams; parts.browTail = browTail;
+
+    const lidarBody = BROW.mastTop + 0.02 + BROW.lidarHeight / 2;
+    const browLidar = new THREE.Group();
+    tube(browLidar, M.alu, BROW.lidarRadius + 0.01, 0.02, 0, BROW.mastTop + 0.01, BROW.mastZ);
+    tube(browLidar, M.sensor, BROW.lidarRadius, BROW.lidarHeight, 0, lidarBody, BROW.mastZ);
+    tube(browLidar, M.lens, BROW.lidarRadius + 0.002, 0.05, 0, lidarBody, BROW.mastZ);
+    browArray.add(browLidar); parts.browLidar = browLidar;
+
+    const stackTop = BROW.mastTop + 0.02 + BROW.lidarHeight;
+    const browGnss = new THREE.Group();
+    const browAntenna = new THREE.Group();
+    [-0.05, 0.05].forEach(x => tube(browAntenna, M.alu, 0.008, 0.02, x, stackTop + 0.01, BROW.mastZ));
+    tube(browAntenna, M.alu, 0.09, 0.012, 0, stackTop + 0.026, BROW.mastZ);
+    tube(browAntenna, M.shell, 0.08, 0.05, 0, stackTop + 0.057, BROW.mastZ);
+    tube(browAntenna, M.shell, 0.05, 0.012, 0, stackTop + 0.088, BROW.mastZ);
+    browGnss.add(browAntenna);
+    box(browGnss, M.instrument, 0.11, 0.05, 0.07, 0, BROW.barY + 0.05, BROW.barZ);
+    browArray.add(browGnss); parts.browGnss = browGnss; anchorOn.browGnss = browAntenna;
+
+    const browCable = new THREE.Group();
+    browCable.visible = brow;
+    inside.add(browCable);
+    box(browCable, M.trim, 0.12, 0.05, 0.10, 0, 2.50, 2.02, false);
+    const browCableCurve = new THREE.CatmullRomCurve3([
+      V3(0, 2.50, 2.02), V3(0, 2.54, 2.40), V3(-0.30, H - 0.13, 2.90),
+      V3(-0.30, H - 0.13, 5.00), V3(-0.34, H - 0.20, 5.32), V3(-0.34, F + 1.12, 5.34),
+    ]);
+    add(browCable, new THREE.TubeGeometry(browCableCurve, 64, 0.016, 8, false), M.gold);
+    strut(browCable, M.gold, V3(-0.55, H - 0.13, L - 0.52), V3(0.55, H - 0.13, L - 0.52), 0.028);
+    const tailCableCurve = new THREE.CatmullRomCurve3([
+      V3(-0.34, H - 0.13, L - 0.52), V3(-0.34, H - 0.30, 5.72), V3(-0.34, F + 1.12, 5.70),
+    ]);
+    add(browCable, new THREE.TubeGeometry(tailCableCurve, 24, 0.016, 8, false), M.gold);
+    parts.browCable = browCable;
+
+    const browCoverage = new THREE.Group();
+    browCoverage.visible = brow && view === 'cover';
+    scene.add(browCoverage);
+    const fanMat = new THREE.MeshBasicMaterial({ color: 0x2f8c97, transparent: true, opacity: 0.17, depthWrite: false, side: THREE.DoubleSide });
+    const fanRearMat = new THREE.MeshBasicMaterial({ color: 0xb3a369, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
+    const fanTailMat = new THREE.MeshBasicMaterial({ color: 0x3f68b5, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
+    owned.push(fanMat, fanRearMat, fanTailMat);
+    BROW_CAMERAS.forEach(c => {
+      const start = (90 - c.az - c.hfov / 2) * Math.PI / 180;
+      const fan = add(browCoverage, new THREE.CircleGeometry(c.range, 48, start, c.hfov * Math.PI / 180),
+        c.tail ? fanTailMat : Math.abs(c.az) > 90 ? fanRearMat : fanMat, c.x, 0.03, camZ(c), false);
+      fan.rotation.x = -Math.PI / 2;
+    });
+
     /* ---------------------------- environment ---------------------------- */
     const shadowMat = new THREE.ShadowMaterial({ opacity: 0.16 });
     owned.push(shadowMat);
@@ -1098,6 +1362,8 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       plan: { pos: new THREE.Vector3(0, 12, L * 0.50), target: new THREE.Vector3(0, 1.55, L * 0.50), inside: true, shell: 0.05 },
       interior: { pos: new THREE.Vector3(0.85, 1.88, L + 3.25), target: new THREE.Vector3(0, 1.02, L * 0.52), inside: true, shell: 0.07 },
       rear: { pos: new THREE.Vector3(5.6, 3.0, L + 6.4), target: new THREE.Vector3(0, 1.55, L * 0.82), inside: false, shell: 1 },
+      front: { pos: new THREE.Vector3(-4.4, 3.5, -5.2), target: new THREE.Vector3(0, 2.05, 2.0), inside: false, shell: 1 },
+      cover: { pos: new THREE.Vector3(0, 26, 3.02), target: new THREE.Vector3(0, 0, 3.0), inside: false, shell: 1 },
     };
     const fade = [M.paint, M.glass, M.trim, M.lamp, M.tyre, M.rim];
     fade.forEach(m => { m.transparent = true; });
@@ -1113,8 +1379,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     controls.update();
     inside.visible = VIEWS[view].inside;
     limit.visible = showLimit;
-    rearFrame.visible = pr || hy || showRearFrame;
-    requested.visible = showRequested && !pr;
+    rearFrame.visible = !flip && !brow && (pr || hy || showRearFrame);
+    requested.visible = showRequested && !pr && !flip && !brow;
+    if (flip) inside.visible = true;
 
     /* re-bake the shadow map only when what casts shadows actually changes */
     const bumpShadows = () => { renderer.shadowMap.needsUpdate = true; };
@@ -1161,6 +1428,13 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
         while (walk && walk !== scene) { if (!walk.visible) return; walk = walk.parent; }
         const anchor = anchors[id];
         if (!anchor) return;
+        if (id.startsWith('flip') && parts[id]) {
+          measure.setFromObject(parts[id]!).getCenter(anchor);
+          if (id === 'flipHandle') {
+            anchor.set(0, flipRotor.rotation.x < -Math.PI / 2 ? 0.68 : -0.68, 0.74);
+            flipRotor.localToWorld(anchor);
+          }
+        }
         world.copy(anchor);
         proj.copy(world).project(camera);
         let visible = proj.z > -1 && proj.z < 1 && Math.abs(proj.x) < 1.02 && Math.abs(proj.y) < 1.02;
@@ -1213,15 +1487,33 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       ([['front', -0.78], ['rear', L + 0.78]] as [string, number][]).forEach(([id, z]) => {
         proj.set(0, 0.30, z).project(camera);
         const ex = (proj.x + 1) * 0.5 * w, ey = (1 - proj.y) * 0.5 * h;
-        ends[id] = { x: ex, y: ey, ax: ex, ay: ey, visible: proj.z < 1 && Math.abs(proj.x) < 1.05 && Math.abs(proj.y) < 1.05 };
+        ends[id] = { x: ex, y: ey, ax: ex, ay: ey, visible: proj.z < 1 && Math.abs(proj.x) < 1.05 && Math.abs(proj.y) < 1.05 && !(id === 'rear' && currentView === 'front') };
       });
       setAxis(ends);
     };
 
     let raf = 0;
-    const tick = () => {
+    let lastFlipAngle = -999;
+    const flipBounds = new THREE.Box3();
+    let lastTick = 0;
+    const tick = (now: number) => {
       raf = 0;
       if (document.hidden) return;
+      const dt = Math.min(lastTick ? (now - lastTick) / 1000 : 1 / 60, 0.05);
+      lastTick = now;
+      const flipDelta = flipTarget - flipRotor.rotation.x;
+      const flipMoving = flip && Math.abs(flipDelta) > 0.00001;
+      if (flipMoving) {
+        flipRotor.rotation.x += Math.sign(flipDelta) * Math.min(Math.abs(flipDelta), dt * Math.PI / 3);
+        flipRotor.updateMatrixWorld(true);
+        bumpShadows();
+        if (outline.visible && highlightedPart) outline.box.setFromObject(highlightedPart).expandByScalar(0.06);
+      }
+      if (flip && lastFlipAngle !== flipRotor.rotation.x) {
+        lastFlipAngle = flipRotor.rotation.x;
+        flipBounds.setFromObject(flipRotor, true);
+        actionRef.current.onFlipMotion(-flipRotor.rotation.x * 180 / Math.PI, Math.max(H + AC_RISE, flipBounds.max.y));
+      }
       if (flying) {
         camera.position.lerp(wantPos, 0.09);
         controls.target.lerp(wantTarget, 0.09);
@@ -1246,7 +1538,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       cutaway();
       renderer.render(scene, camera);
       project();
-      if (flying || seatsRotating || moved || Math.abs(o - wantShell) > 0.001) wake();
+      if (flying || flipMoving || seatsRotating || moved || Math.abs(o - wantShell) > 0.001) wake();
     };
     const wake = () => { if (!raf && !document.hidden) raf = requestAnimationFrame(tick); };
     const resize = () => {
@@ -1289,20 +1581,31 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
         wantPos.copy(VIEWS[v].pos);
         wantTarget.copy(VIEWS[v].target);
         wantShell = VIEWS[v].shell;
-        inside.visible = VIEWS[v].inside;
+        inside.visible = flip || VIEWS[v].inside;
+        browCoverage.visible = brow && v === 'cover';
         flying = true;
         bumpShadows();
         wake();
       },
       setLimit: on => { limit.visible = on; bumpShadows(); wake(); },
-      setRear: on => { rearFrame.visible = pr || hy || on; bumpShadows(); wake(); },
-      setRequested: on => { requested.visible = on && !pr; bumpShadows(); wake(); },
+      setRear: on => { rearFrame.visible = !flip && !brow && (pr || hy || on); bumpShadows(); wake(); },
+      setRequested: on => { requested.visible = on && !pr && !flip && !brow; bumpShadows(); wake(); },
       setDoorSwing: on => { doorSwing.visible = on; wake(); },
       setProvision: on => { provision.visible = on; bumpShadows(); wake(); },
       setSeatFacing: side => { seatFacingTarget = side ? Math.PI / 2 : 0; wake(); },
+      setFlip: angle => { flipTarget = -angle * Math.PI / 180; lastTick = 0; wake(); },
+      setFlipLocked: locked => {
+        latchMaterial.color.setHex(locked ? 0x37896d : 0xba6545);
+        latchPins.forEach((pin, i) => { pin.position.x = (i === 0 ? -1 : 1) * (locked ? 0.49 : 0.59); });
+        bumpShadows(); wake();
+      },
+      setFlipEnvelope: visible => { flipEnvelope.visible = flip && visible; wake(); },
       highlight: p => {
         const target = p ? parts[p] : null;
         highlightedPart = target ?? null;
+        // Selecting the frame fades the fairing so the structure inside can be seen.
+        browShellMat.opacity = p === 'browBar' ? 0.2 : 1;
+        browShellMat.depthWrite = p !== 'browBar';
         if (!target || !target.visible) outline.visible = false;
         else { outline.box.setFromObject(target).expandByScalar(0.06); outline.visible = true; }
         wake();
@@ -1341,6 +1644,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
   useEffect(() => { api.current?.setDoorSwing(showDoorSwing); }, [showDoorSwing]);
   useEffect(() => { api.current?.setProvision(showProvision); }, [showProvision]);
   useEffect(() => { api.current?.setSeatFacing(seatSide); }, [seatSide]);
+  useEffect(() => { api.current?.setFlip(flipAngle); }, [flipAngle]);
+  useEffect(() => { api.current?.setFlipLocked(flipLocked); }, [flipLocked]);
+  useEffect(() => { api.current?.setFlipEnvelope(showFlipEnvelope); }, [showFlipEnvelope]);
   useEffect(() => { api.current?.highlight(selected); }, [selected, view, showRearFrame]);
   useEffect(() => { api.current?.redraw(); }, [annotations]);
 

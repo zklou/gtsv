@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
 import VanScene, { heightCases, tags, type Annotation, type Body, type GantryLevel, type Layout, type Part, type Phase, type View } from '@/components/VanScene';
 import './index.css';
+import { FLIP } from '@/components/flipMechanism';
+import { BROW_CAMERAS } from '@/components/browArray';
 
 type DeviceSpec = { title: string; items: string[]; status?: string };
 
 const detail: Record<Part, DeviceSpec> = {
+  browShell: { title: 'Printed weather fairing', items: ['UV-stable ASA or similar, printed in sections', 'Glass camera windows with gaskets', 'Breather vent against condensation', 'Carries no sensor load'], status: 'The fairing only keeps weather out. In the model it stops about 2 cm above the top of the windshield, so the glass stays clear. Section count, wall thickness and sealing need a printed trial.' },
+  browBar: { title: 'Rigid aluminium sensor frame', items: ['Transverse bar, illustrative 1.46 m', 'Two outriggers for the rear-side cameras, inside mirror width', 'Centre mast with rear brace', 'Body mounts on the brow panel, positions TBD'], status: 'Every sensor shares this frame so the calibration holds. The fairing fades while this item is selected. The body structure behind the brow is not confirmed, so the mounts cannot be dimensioned yet.' },
+  browCams: { title: 'Front surround cameras × 8', items: BROW_CAMERAS.filter(c => !c.tail).map(c => `${c.id} · ${c.role} · ${c.hfov}° lens`), status: 'Replaces the 360 camera. The eight fields overlap from straight ahead round to the rear quarters on both sides. Camera models, lenses and synchronisation are TBD.' },
+  browTail: { title: 'Tail cameras × 2', items: [...BROW_CAMERAS.filter(c => c.tail).map(c => `${c.id} · ${c.role} · ${c.hfov}° lens`), 'Brackets on the fixed roof edge, clear of the rear doors', 'Sealed roof gland at each bracket'], status: 'These close the blind strip behind the van, and their fields cross behind the tail. With the assumed lens the road is visible from about 2 m behind the van. They are not on the front frame, so they need their own calibration. Rear-facing lenses collect road spray, so plan for cleaning.' },
+  browLidar: { title: 'LiDAR on the centre mast', items: ['LiDAR × 1, colour LiDAR preferred, model TBD', 'Optical centre about 2.87 m above ground, just above the roof line'], status: 'Clear all the way around at the horizon. Road surface is visible from about 1.2 m ahead of the bumper and about 8 m out to each side. The van body blocks the road behind.' },
+  browGnss: { title: 'GNSS antenna and IMU', items: ['RTK / PPK GNSS antenna on top of the LiDAR stack', 'IMU on the rigid frame directly below the LiDAR'], status: 'The antenna is the highest point at the front of the van, with open sky above it. Receiver and IMU models are TBD. Check roof and A/C multipath in a field test.' },
+  browCable: { title: 'Cable route to the rack', items: ['Sealed gland through the brow panel', 'Conduit above the ceiling liner, about 5 m to the rack', 'Short second run from the tail cameras to the rack', 'Pull cord left in place for later cables'], status: 'Install this before the ceiling liner closes, so raise it with Leonard at the drop-off strategy meeting. The route is conceptual.' },
+  flipHatch: { title: 'Roof opening & transverse hinge', items: ['Reinforced roof opening, illustrative 0.84 × 2.40 m', 'Transverse pivot with two bearing brackets', 'Reversible carrier panel with perimeter seal'], status: 'The hinge sits within the opening to let the entire assembly rotate through 180°. Roof reinforcement, sealing and drainage need a measured design.' },
+  flipPackage: { title: 'Complete flip-in sensor assembly', items: ['360 camera and articulated mast', 'GNSS receiver, cylindrical LiDAR and side camera modules', 'Common rigid mounting plates; all equipment flips together', 'Cable run to the hinge with a flexible service loop'], status: 'Geometry follows the supplied reference image. Instrument identities, mass and dimensions are illustrative pending an equipment inventory.' },
+  flipLatch: { title: 'Cabin-operated mechanical latches', items: ['Two captive locking pins with reachable release tabs', 'Positive stops at 0° working and 180° stowed', 'Both pins operated from inside the van'], status: 'Release the latches, move the assembly by its grab rail, then latch it at the opposite end stop. The demonstration prevents movement while latched. Pin sizing and manual handling depend on the actual package weight.' },
+  flipHandle: { title: 'Manual grab rails', items: ['Opposed grab rails on the carrier', 'Downward rail approximately 2.16 m above ground in the extended van', 'Direct manual rotation; no motor or crank'], status: 'A rail faces into the cabin in either end position. Keep the marked sweep and stow volume clear of people and furniture while turning.' },
   beam: { title: 'Rear sensor carrier', items: ['Rear sensor mounting frame × 1', 'Mounting brackets and fasteners — size TBD'], status: 'Concept location from the corrected sketch; hardware dimensions are not specified.' },
   lidar: { title: 'LiDAR', items: ['Existing LiDAR units × 3', 'Sensor mounts × 3'], status: 'Models and dimensions need a physical inventory.' },
   cameras: { title: 'Camera mounts', items: ['Rigid camera mounts on the sensor frame', 'Cameras — count and models TBD'], status: 'The sheet does not give a camera count.' },
@@ -45,10 +58,12 @@ const pathrunnerDetail: Partial<Record<Part, DeviceSpec>> = {
 };
 
 const lists: { title: string; items: Part[]; tone?: string; layouts?: Layout[] }[] = [
-  { title: 'Roof / sensing', items: ['frontCams', 'beam', 'lidar', 'cameras', 'gnss', 'pass', 'acRear'] },
+  { title: 'Brow array / 前脸传感器', items: ['browShell', 'browBar', 'browCams', 'browTail', 'browLidar', 'browGnss', 'browCable', 'acRear'], layouts: ['brow'] },
+  { title: 'Flip-in / 车内手动翻转', items: ['flipHatch', 'flipPackage', 'flipLatch', 'flipHandle', 'acRear'], layouts: ['flip'] },
+  { title: 'Roof / sensing', items: ['frontCams', 'beam', 'lidar', 'cameras', 'gnss', 'pass', 'acRear'], layouts: ['sheet', 'pathrunner', 'hybrid'] },
   { title: 'Cabin / systems', items: ['seats', 'desk', 'rack', 'power'] },
   { title: 'Provisioned now, used later', items: ['pvConsole', 'pvScreen', 'pvCable', 'pvPower'], tone: 'provision' },
-  { title: 'Asked for by the group', items: ['rqLidar', 'rqGnss', 'rqCamera', 'rqDepth', 'rqTobii'], tone: 'requested' },
+  { title: 'Asked for by the group', items: ['rqLidar', 'rqGnss', 'rqCamera', 'rqDepth', 'rqTobii'], tone: 'requested', layouts: ['sheet', 'pathrunner', 'hybrid'] },
   { title: 'PathRunner reference rig', items: ['pgDeck', 'pgMast', 'pgPavement', 'pgDmi', 'pgFront'], tone: 'reference', layouts: ['sheet'] },
   { title: 'Also on the rig', items: ['pgPavement', 'pgDmi', 'pgFront'], tone: 'reference', layouts: ['pathrunner'] },
 ];
@@ -109,15 +124,17 @@ const gtOwes = [
 
 const params = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
 const showPrices = params?.get('quote') === '1';
-const startView = (['exterior', 'roof', 'plan', 'interior', 'rear'] as View[])
-  .find(v => v === params?.get('view')) ?? 'exterior';
+const startLayout = (['brow', 'flip', 'sheet', 'pathrunner'] as Layout[])
+  .find(v => v === params?.get('layout')) ?? 'brow';
+const startView = (['exterior', 'roof', 'plan', 'interior', 'rear', 'front', 'cover'] as View[])
+  .find(v => v === params?.get('view')) ?? (startLayout === 'brow' ? 'front' : 'exterior');
 const startBody = (['extended', 'long'] as Body[])
   .find(v => v === params?.get('body')) ?? 'extended';
 const savedPoints = (): Annotation[] => {
   try {
     const shared = new URLSearchParams(window.location.search).get('points');
     const value = JSON.parse(shared ?? localStorage.getItem('gtsv-custom-points') ?? '[]');
-    return Array.isArray(value) ? value.filter(p => typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.point) && p.point.length === 3 && p.point.every((n: unknown) => typeof n === 'number') && ['exterior', 'roof', 'plan', 'interior', 'rear'].includes(p.view)) : [];
+    return Array.isArray(value) ? value.filter(p => typeof p.id === 'string' && typeof p.name === 'string' && Array.isArray(p.point) && p.point.length === 3 && p.point.every((n: unknown) => typeof n === 'number') && ['exterior', 'roof', 'plan', 'interior', 'rear', 'front', 'cover'].includes(p.view)) : [];
   } catch { return []; }
 };
 
@@ -130,11 +147,15 @@ export default function Home() {
   const [requested, setRequested] = useState(false);
   const [doorSwing, setDoorSwing] = useState(false);
   const [provision, setProvision] = useState(true);
-  const [layout, setLayout] = useState<Layout>('sheet');
-  const [phase, setPhase] = useState<Phase>('phase1');
+  const [layout, setLayout] = useState<Layout>(startLayout);
+  const [phase, setPhase] = useState<Phase>('full');
   const [seatSide, setSeatSide] = useState(true);
   const [gantryLevel, setGantryLevel] = useState<GantryLevel>('roof');
-  const [panel, setPanel] = useState<'phase1' | 'layout' | 'dimensions' | 'sources'>('phase1');
+  const [panel, setPanel] = useState<'phase1' | 'layout' | 'dimensions' | 'sources'>('layout');
+  const [flipAngle, setFlipAngle] = useState(0);
+  const [flipLocked, setFlipLocked] = useState(true);
+  const [flipEnvelope, setFlipEnvelope] = useState(true);
+  const [flipMotion, setFlipMotion] = useState({ angle: 0, height: heightCases(startBody).roof + FLIP.pivotRise + FLIP.sensorTop });
   const [annotations, setAnnotations] = useState<Annotation[]>(savedPoints);
   const [selectedAnnotation, setSelectedAnnotation] = useState<string | null>(null);
   const [addMode, setAddMode] = useState(false);
@@ -142,9 +163,18 @@ export default function Home() {
   useEffect(() => { setCopiedPoints(false); try { localStorage.setItem('gtsv-custom-points', JSON.stringify(annotations)); } catch { /* browser storage may be disabled */ } }, [annotations]);
   const heights = heightCases(body);
   const first = phase === 'phase1';
+  const flipping = !first && layout === 'flip';
+  const browing = !first && layout === 'brow';
+  const pickLayout = (next: Layout) => {
+    setLayout(next);
+    if (next === 'brow') setView('front');
+    else if (view === 'front' || view === 'cover') setView('exterior');
+  };
+  const flipSettled = Math.abs(flipMotion.angle - flipAngle) < 0.05;
+  const flipEndStop = flipSettled && (flipAngle === 0 || flipAngle === 180);
   const metres = (v: number) => `${v.toFixed(2)} m`;
   const money = (v: number) => showPrices ? `$${v.toLocaleString('en-US')}` : '$ — — —';
-  const detailFor = (p: Part) => (layout === 'pathrunner' && pathrunnerDetail[p]) || detail[p];
+  const detailFor = (p: Part) => (layout === 'brow' && p === 'rack' ? { ...detail.rack, items: detail.rack.items.slice(1), status: 'Rack size and inventory TBD. With the sensors on the brow, the rear doors stay free for loading.' } : null) || (layout === 'pathrunner' && pathrunnerDetail[p]) || (layout === 'flip' && p === 'acRear' ? { ...detail.acRear, title: 'Forward roof A/C', status: 'Moved ahead of the flip hatch in this concept. Its roof projection still determines the stowed vehicle height.' } : detail[p]);
   const length = body === 'extended' ? '263.9 in / 6.70 m' : '235.5 in / 5.98 m';
   const roofHeight = body === 'extended' ? '110.4 in / 2.80 m' : '109.6 in / 2.78 m';
 
@@ -155,7 +185,12 @@ export default function Home() {
     const tone = tags[part].tone;
     if (tone === 'requested') setRequested(true);
     if (tone === 'reference') setRearFrame(true);
-    if (tone === 'reference') setView('rear');
+    if (part === 'browCable') setView('interior');
+    else if (part === 'browTail') { if (view !== 'cover') setView('exterior'); }
+    else if (part.startsWith('brow')) { if (view !== 'front' && view !== 'cover') setView('front'); }
+    else if (part === 'flipLatch' || part === 'flipHandle') setView('interior');
+    else if (part === 'flipHatch' || part === 'flipPackage') { /* keep the chosen mechanism view */ }
+    else if (tone === 'reference') setView('rear');
     else if (tags[part].views.includes('interior')) setView('interior');
     else if (view === 'interior' || view === 'rear') setView('roof');
   };
@@ -187,13 +222,18 @@ export default function Home() {
       <section className="model-pane" aria-label="Vehicle model">
         <div className="viewer-wrap">
           <VanScene view={view} body={body} selected={selected} showLimit={limit} showRearFrame={rearFrame && !first} showRequested={requested && !first} showDoorSwing={doorSwing} showProvision={provision && !first} layout={first ? 'sheet' : layout} phase={phase} seatSide={seatSide} gantryLevel={gantryLevel} onSelect={choose}
+            flipAngle={flipAngle} flipLocked={flipLocked} showFlipEnvelope={flipEnvelope} onFlipMotion={(angle, height) => setFlipMotion({ angle, height })}
             annotations={annotations} addMode={addMode} selectedAnnotation={selectedAnnotation} onAddAnnotation={addAnnotation} onMoveAnnotation={moveAnnotation}
             onSelectAnnotation={id => { setSelectedAnnotation(id); setSelected(null); setPanel('layout'); }} />
           <div className="stage-height">{first
             ? <><span>Phase 1 top</span><strong>≈ {metres(heights.ac)}</strong><small>roof A/C is the highest point</small></>
+            : browing ? <><span>Sensor stack top</span><strong>≈ {metres(heights.browTop)}</strong><small>A/C stays highest at {metres(heights.ac)}</small></>
+            : flipping ? <><span>{flipMotion.angle > 179.95 ? 'Stowed inside / 车内收纳' : flipMotion.angle < 0.05 ? 'Working / 车外工作' : 'Turning / 翻转中'}</span><strong>≈ {metres(flipMotion.height)}</strong><small>{flipLocked ? 'Mechanical latches engaged' : 'Latches released'} · {flipMotion.angle.toFixed(0)}°</small></>
             : <><span>Scenario top</span><strong>≈ {metres(layout === 'sheet' ? heights.sheet : gantryLevel === 'roof' ? heights.pathrunner : heights.lowered)}</strong><small>2.60 m target exceeded</small></>}</div>
           <div className="view-controls" role="group" aria-label="Camera view">
-            {([['exterior', '3D exterior'], ['roof', 'Roof'], ['plan', 'Plan'], ['interior', 'Interior'], ['rear', 'Rear sensors']] as [View, string][]).map(([key, name]) =>
+            {((browing
+              ? [['front', 'Front array'], ['cover', 'Coverage'], ['exterior', '3D exterior'], ['roof', 'Roof'], ['plan', 'Plan'], ['interior', 'Interior']]
+              : [['exterior', '3D exterior'], ['roof', 'Roof'], ['plan', 'Plan'], ['interior', 'Interior'], ['rear', 'Rear sensors']]) as [View, string][]).map(([key, name]) =>
               <button key={key} type="button" className={view === key ? 'active' : ''} onClick={() => { setView(key); if (key === 'rear') setRearFrame(true); }}>{name}</button>
             )}
           </div>
@@ -203,7 +243,7 @@ export default function Home() {
           <div className="variant" role="group" aria-label="Build scope">
             <span>Scope</span>
             <button type="button" className={first ? 'active' : ''} onClick={() => { setPhase('phase1'); setPanel('phase1'); setView('interior'); }}>Phase 1</button>
-            <button type="button" className={!first ? 'active' : ''} onClick={() => setPhase('full')}>Full concept</button>
+            <button type="button" className={!first ? 'active' : ''} onClick={() => { setPhase('full'); setPanel('layout'); }}>Full concept</button>
           </div>
           {first && <div className="variant" role="group" aria-label="Connected bench rotation">
             <span>Bench rotation</span>
@@ -212,8 +252,10 @@ export default function Home() {
           </div>}
           {!first && <div className="variant" role="group" aria-label="Sensor architecture">
             <span>Layout</span>
-            <button type="button" className={layout === 'sheet' ? 'active' : ''} onClick={() => setLayout('sheet')}>Our sheet</button>
-            <button type="button" className={layout === 'pathrunner' ? 'active' : ''} onClick={() => setLayout('pathrunner')}>PathRunner</button>
+            <button type="button" className={layout === 'brow' ? 'active' : ''} onClick={() => { pickLayout('brow'); setSelected(null); setPanel('layout'); }}>Brow array / 前脸</button>
+            <button type="button" className={layout === 'flip' ? 'active' : ''} onClick={() => { pickLayout('flip'); setSelected(null); setPanel('layout'); }}>Flip-in / 翻转</button>
+            <button type="button" className={layout === 'sheet' ? 'active' : ''} onClick={() => pickLayout('sheet')}>Our sheet</button>
+            <button type="button" className={layout === 'pathrunner' ? 'active' : ''} onClick={() => pickLayout('pathrunner')}>PathRunner</button>
           </div>}
           <div className="variant" role="group" aria-label="Vehicle body length">
             <span>Body length</span>
@@ -225,12 +267,33 @@ export default function Home() {
           <label className="toggle"><input type="checkbox" checked={doorSwing} onChange={e => setDoorSwing(e.target.checked)} /> Rear door swing</label>
           {!first && <label className="toggle"><input type="checkbox" checked={provision} onChange={e => setProvision(e.target.checked)} /> Cab provisioning</label>}
         </div>
+        {flipping && <section className="flip-controls" aria-label="Manual flip-in mechanism">
+          <div className="flip-heading"><div><span className="kicker">Manual flip-in · 纯机械</span><h2>Release. Flip. Latch.</h2><p>车内解锁 → 握住把手翻转整套设备 → 到位扣紧</p></div><span className={`latch-status ${flipLocked ? 'locked' : ''}`} role="status">{flipLocked ? '● Latched / 已锁定' : '○ Released / 已解锁'}</span></div>
+          <div className="flip-actions">
+            <button type="button" className="latch-button" disabled={!flipLocked && !flipEndStop} onClick={() => setFlipLocked(value => !value)}>{flipLocked ? '1 · Release latches / 解锁扣' : flipEndStop ? '3 · Latch at end stop / 扣紧' : 'Reach an end stop to latch / 到位后锁定'}</button>
+            <button type="button" disabled={flipLocked} aria-pressed={flipAngle === 180} onClick={() => setFlipAngle(180)}>2 · Flip inside / 翻入车内</button>
+            <button type="button" disabled={flipLocked} aria-pressed={flipAngle === 0} onClick={() => setFlipAngle(0)}>2 · Flip outside / 翻到车外</button>
+          </div>
+          <label className="flip-slider" htmlFor="flip-angle"><span>Manual position / 手动角度 <output>{flipMotion.angle.toFixed(0)}°</output></span><input id="flip-angle" type="range" min="0" max="180" step="1" value={flipAngle} disabled={flipLocked} onChange={e => setFlipAngle(Number(e.target.value))} /><span className="flip-scale"><small>0° · Working / 工作</small><small>90° · Through hatch / 穿过开口</small><small>180° · Stowed / 收纳</small></span></label>
+          <div className="flip-options"><label className="toggle"><input type="checkbox" checked={flipEnvelope} onChange={e => setFlipEnvelope(e.target.checked)} /> Sweep & cabin space / 翻转及收纳空间</label><button type="button" onClick={() => setView('interior')}>See from inside / 车内视角 ↗</button></div>
+        </section>}
         {!first && layout === 'pathrunner' && <div className="gantry-switch" role="group" aria-label="PathRunner crossarm height">
           <span>Gantry height</span>
             <button type="button" className={gantryLevel === 'roof' ? 'active' : ''} onClick={() => setGantryLevel('roof')}>Raised crossarm · {metres(heights.raisedBar)}</button>
             <button type="button" className={gantryLevel === 'lowered' ? 'active' : ''} onClick={() => setGantryLevel('lowered')}>Lower crossarm · {metres(heights.loweredDeck)}</button>
         </div>}
-        {!first && <div className="height-compare" aria-label="Height comparison">
+        {flipping && <div className="height-compare flip-heights" aria-label="Flip-in height comparison">
+          <div className={flipAngle === 0 ? 'active' : ''}><span>Working / 车外工作</span><strong>≈ {metres(heights.roof + FLIP.pivotRise + FLIP.sensorTop)}</strong><small>Complete assembly above roof</small></div>
+          <div className={flipAngle === 180 ? 'active' : ''}><span>Stowed / 车内收纳</span><strong>≈ {metres(heights.ac)}</strong><small>A/C remains the highest point</small></div>
+          <div><span>Cabin under stowed sensor</span><strong>≈ {metres(heights.roof + FLIP.pivotRise - FLIP.sensorTop - (body === 'extended' ? 28.0 : 28.7) * 0.0254)}</strong><small>Clear height above cargo floor</small></div>
+        </div>}
+        {browing && <div className="height-compare" aria-label="Brow array height comparison">
+          <div><span>Bare high roof</span><strong>{metres(heights.roof)}</strong><small>Ford published</small></div>
+          <div className="active"><span>Fairing top</span><strong>≈ {metres(heights.browFairing)}</strong><small>Below the roof line</small></div>
+          <div><span>LiDAR + GNSS top</span><strong>≈ {metres(heights.browTop)}</strong><small>Centre mast only</small></div>
+          <div><span>With rear A/C</span><strong>≈ {metres(heights.ac)}</strong><small>Still the highest point</small></div>
+        </div>}
+        {!first && !flipping && !browing && <div className="height-compare" aria-label="Height comparison">
           <div><span>Bare high roof</span><strong>{metres(heights.roof)}</strong><small>Ford published</small></div>
           <div className={layout === 'sheet' ? 'active' : ''}><span>Sensors only</span><strong>≈ {metres(heights.sensors)}</strong><small>Lowered mounts; A/C not yet fitted</small></div>
           <div><span>With rear A/C</span><strong>≈ {metres(heights.ac)}</strong><small>Later addition, becomes the tallest</small></div>
@@ -239,8 +302,12 @@ export default function Home() {
         </div>}
         {first
           ? <div className="design-conflict"><strong>Phase one only.</strong> No rear carrier, no sensors and no workstation: this is what Leonard quoted on 30 October. The gold patch on the rear roof is the area held clear for the phase-two sensor carrier, and the translucent volumes inside are the shelving and worktop that were discussed on 21 October but appear on neither quote. The A/C at {metres(heights.ac)} is the highest point on the van in this scope.</div>
+          : browing ? <div className="design-conflict"><strong>One sensor frame above the windshield, plus two tail cameras.</strong> The glass stays clear and the array does not raise the van above the {metres(heights.ac)} A/C. The tail cameras close the view behind the van, but the LiDAR still cannot see the road behind it. Confirm the body structure behind the brow, the total weight and Ford&rsquo;s mounting limits before fabrication.</div>
+          : flipping ? <div className="design-conflict"><strong>Sensor height folds away; the van and A/C stay tall.</strong> The full package turns through the roof opening and hangs inside the reserved cabin space. Stowed height remains approximately {metres(heights.ac)}, above the 2.60 m target. Illustrative geometry; confirm package weight, manual handling, roof reinforcement and latch capacity before fabrication.</div>
           : <div className="design-conflict"><strong>No 2.60 m solution on this high-roof van.</strong> Lowering the rear crossarm brings the upper sensors to {metres(heights.loweredHead)}, below the {metres(heights.roof)} roof, so the body can block forward views. With the mounts lowered the sensing package tops out at {metres(heights.sensors)}, but the rear A/C fitted later still reaches {metres(heights.ac)} and becomes the highest point. Tsai must choose the sensor architecture and parking plan before fabrication.</div>}
-        <div className="model-caption">Drag to orbit · scroll to zoom · select a numbered pin. Ford dimensions set the vehicle envelope; hardware sizes and mounting positions remain conceptual until measured.</div>
+        <div className="model-caption">{browing && view === 'cover'
+          ? 'Teal: forward and corner cameras. Gold: rear-side cameras. Blue: tail cameras. Fan lengths are schematic, not camera range.'
+          : 'Drag to orbit · scroll to zoom · select a numbered pin. Ford dimensions set the vehicle envelope; hardware sizes and mounting positions remain conceptual until measured.'}</div>
       </section>
 
       <aside className="side-pane" aria-label="Build details">
@@ -297,6 +364,12 @@ export default function Home() {
             <div className="issue-card neutral"><strong>Phase two stays open</strong><p>The rear carrier, the LiDAR and camera package, the survey-grade GNSS and the depth cameras are not priced here and are not fixed. The build sheet tab holds that list, and the rack still needs measured equipment dimensions and weights before American Custom Design Vehicles can design or quote it.</p></div>
           </>}
           {panel === 'layout' && <>
+            {browing && <div className="side-intro brow-intro"><p className="kicker">Windshield brow array</p><h2>前脸一体传感器</h2><p>One rigid aluminium frame above the windshield carries eight HD cameras, the LiDAR, the GNSS antenna and the IMU. Two more HD cameras on the rear roof edge cover the view behind the van. A printed fairing covers the front frame, and the cables run above the ceiling liner to the rack. Open Coverage to see what the cameras see.</p>
+              <table className="brow-cams"><thead><tr><th>Cam</th><th>Role</th><th>Facing</th><th>Lens</th></tr></thead><tbody>
+                {BROW_CAMERAS.map(c => <tr key={c.id}><td>{c.id}</td><td>{c.role}</td><td>{c.tail ? `Back, ${180 - Math.abs(c.az)}° ${c.az < 0 ? 'left' : 'right'}, ${c.pitch}° down` : c.az === 0 ? (c.pitch ? `Ahead, ${c.pitch}° down` : 'Ahead') : `${Math.abs(c.az)}° ${c.az < 0 ? 'left' : 'right'}`}</td><td>{c.hfov}°</td></tr>)}
+              </tbody></table>
+            </div>}
+            {flipping && <div className="side-intro flip-intro"><p className="kicker">Flip-in sensor carrier</p><h2>整套翻入，车内操作</h2><p>A single carrier keeps the camera, LiDAR and GNSS together. Release the reachable mechanical latches, turn the grab rail by hand, and latch at the other end. The teal outline reserves the full movement space inside the cabin.</p><img src="sheets/flip-sensor-reference.png" alt="User reference: complete sensor stack with Insta360 camera, GNSS, LiDAR and shared mounting plates" /><span>Assembly reference · illustrative model dimensions</span></div>}
             {(annotations.length > 0 || addMode) && <div className="custom-points">
               <h3>Your points</h3>
               {addMode && <p className="point-hint">Click the van or equipment to place a point.</p>}
