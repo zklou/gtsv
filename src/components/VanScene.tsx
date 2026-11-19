@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FLIP, openRoof } from './flipMechanism';
+import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BROW, BROW_CAMERAS, browProfile } from './browArray';
+import { buildVanBody } from './vanBody';
+import { buildWorld, SUN_DIR } from './worldScene';
+import { createPostFx } from './postFx';
 
 export type View = 'exterior' | 'roof' | 'plan' | 'interior' | 'rear' | 'front' | 'cover';
 export type Body = 'extended' | 'long';
@@ -213,6 +217,7 @@ type Props = {
   view: View;
   body: Body;
   selected: Part | null;
+  showPins: boolean;
   showLimit: boolean;
   showRearFrame: boolean;
   showRequested: boolean;
@@ -236,12 +241,11 @@ type Props = {
 };
 type Screen = { x: number; y: number; ax: number; ay: number; visible: boolean };
 
-export default function VanScene({ view, body, selected, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, seatSide, gantryLevel, flipAngle, flipLocked, showFlipEnvelope, onFlipMotion, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
+export default function VanScene({ view, body, selected, showPins, showLimit, showRearFrame, showRequested, showDoorSwing, showProvision, layout, phase, seatSide, gantryLevel, flipAngle, flipLocked, showFlipEnvelope, onFlipMotion, onSelect, annotations, addMode, selectedAnnotation, onAddAnnotation, onMoveAnnotation, onSelectAnnotation }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [positions, setPositions] = useState<Record<string, Screen>>({});
   const [axis, setAxis] = useState<Record<string, Screen>>({});
-  const [showPins, setShowPins] = useState(true);
   const [annotationPositions, setAnnotationPositions] = useState<Record<string, Screen>>({});
   const annotationRef = useRef(annotations);
   annotationRef.current = annotations;
@@ -285,12 +289,12 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    renderer.toneMappingExposure = 0.6;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.shadowMap.autoUpdate = false;
 
-    const perspectiveCamera = new THREE.PerspectiveCamera(33, 1, 0.05, 120);
+    const perspectiveCamera = new THREE.PerspectiveCamera(33, 1, 0.12, 1600);
     const roofCamera = new THREE.OrthographicCamera(-4.3, 4.3, 2.5, -2.5, 0.05, 120);
     roofCamera.up.set(1, 0, 0); // front at left, rear at right in the roof plan
     const flat = (v: View) => v === 'roof' || v === 'plan';
@@ -304,35 +308,35 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     controls.maxDistance = 30;
     controls.maxPolarAngle = Math.PI * 0.493;
 
-    scene.add(new THREE.HemisphereLight(0xdfe9f4, 0x55504a, 1.25));
+    scene.add(new THREE.HemisphereLight(0xdfe9f4, 0x55504a, 0.22));
     const cabinLight = new THREE.PointLight(0xfff2d8, 18, 7, 2);   // soft fill so the cargo bay is not flat
     scene.add(cabinLight);
-    const sun = new THREE.DirectionalLight(0xffffff, 1.9);
-    sun.position.set(-5.0, 9.5, 3.2);
+    const sun = new THREE.DirectionalLight(0xfff6ec, 2.7);
+    sun.position.copy(SUN_DIR).multiplyScalar(16).add(new THREE.Vector3(0, 1.1, L / 2));
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(4096, 4096);
     sun.shadow.bias = -0.0012;
     sun.shadow.normalBias = 0.02;
-    Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 2, far: 24 });
+    Object.assign(sun.shadow.camera, { left: -6, right: 6, top: 6, bottom: -6, near: 2, far: 34 });
     sun.target.position.set(0, 1.1, L / 2);
     scene.add(sun, sun.target);
-    const rim = new THREE.DirectionalLight(0xffffff, 0.45);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.16);
     rim.position.set(6.5, 2.5, -7);
     scene.add(rim);
 
     const std = (color: number, roughness = 0.6, metalness = 0) =>
       new THREE.MeshStandardMaterial({ color, roughness, metalness });
     const M = {
-      paint: new THREE.MeshPhysicalMaterial({ color: 0xe8ebee, roughness: 0.42, metalness: 0.02, clearcoat: 0.45, clearcoatRoughness: 0.3 }),
-      trim: std(0x272d34, 0.72),
+      paint: new THREE.MeshPhysicalMaterial({ color: 0xf3f4f3, roughness: 0.34, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.07 }),
+      trim: std(0x15181b, 0.66),
       dark: std(0x191e24, 0.6),
-      glass: new THREE.MeshPhysicalMaterial({ color: 0x16222b, roughness: 0.30, metalness: 0.0, specularIntensity: 0.55, transparent: true, opacity: 0.9, clearcoat: 0.15, clearcoatRoughness: 0.4, side: THREE.DoubleSide }),
-      lamp: new THREE.MeshPhysicalMaterial({ color: 0xd2dae0, roughness: 0.1, metalness: 0.2, transparent: true, opacity: 0.92 }),
-      tyre: std(0x141719, 0.95),
+      glass: new THREE.MeshPhysicalMaterial({ color: 0x060a0d, roughness: 0.05, metalness: 0.1, envMapIntensity: 1.7, transparent: true, opacity: 0.88, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide }),
+      lamp: new THREE.MeshPhysicalMaterial({ color: 0x0a0d10, roughness: 0.04, metalness: 0.1, transparent: true, opacity: 0.3, clearcoat: 1, clearcoatRoughness: 0.02, side: THREE.DoubleSide }),
+      tyre: std(0x0d0e0f, 0.9),
       rim: std(0xa9b1b8, 0.36, 0.8),
-      alu: std(0xb6bdc4, 0.3, 0.85),
-      sensor: std(0x2b3137, 0.45, 0.3),
-      lens: std(0x0b0e11, 0.14, 0.55),
+      alu: std(0xc6cacd, 0.28, 1),
+      sensor: std(0x1d2125, 0.38, 0.55),
+      lens: std(0x030507, 0.06, 0.9),
       shell: std(0xe6e9ec, 0.55),
       gold: std(0xb3a369, 0.36, 0.55),
       instrument: std(0x2f6f96, 0.42, 0.3),
@@ -390,79 +394,17 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       return entries;
     };
 
-    /* ------------------------------ shell ------------------------------ */
+    /* ------------------------------ vehicle ------------------------------ */
     const exterior = new THREE.Group();
     scene.add(exterior);
-    const bodyGeometry = shellGeometry(b);
-    const shell = add(exterior, flip ? openRoof(bodyGeometry, H, flipZ) : bodyGeometry, M.paint);
-    shell.receiveShadow = true;
-
-    // windscreen, sitting on the cowl-to-header plane
-    const dz = HEADER[0] - COWL[0], dy = HEADER[1] - COWL[1];
-    const len = Math.hypot(dz, dy);
-    const ox = (-dy / len) * 0.014, oy = (dz / len) * 0.014;
-    add(exterior, quad(
-      [-0.830, COWL[1] + oy, COWL[0] + ox], [0.830, COWL[1] + oy, COWL[0] + ox],
-      [0.760, HEADER[1] + oy, HEADER[0] + ox], [-0.760, HEADER[1] + oy, HEADER[0] + ox],
-    ), M.glass, 0, 0, 0, false);
-
-    // cab side glass and rear door glass
-    [1, -1].forEach(s => {
-      add(exterior, quad(
-        [s * sideX, 1.470, 1.905], [s * sideX, 1.470, 2.700],
-        [s * sideX, 2.075, 2.700], [s * sideX, 2.075, 2.015],
-      ), M.glass, 0, 0, 0, false);
-    });
-    box(exterior, M.glass, 1.30, 0.58, 0.02, 0, 2.00, L + 0.010, false);
-    box(exterior, M.trim, 0.03, 1.78, 0.03, 0, 1.56, L + 0.018, false);
-    [-0.78, 0.78].forEach(x => box(exterior, M.trim, 0.10, 0.05, 0.07, x, 1.28, L + 0.03));
-
-    // front: bumper, valance, grille bars, badge, lamps
-    box(exterior, M.trim, WIDTH - 0.18, 0.235, 0.13, 0, 0.470, 0.040);
-    box(exterior, M.trim, WIDTH - 0.34, 0.10, 0.10, 0, 0.345, 0.045, false);
-    box(exterior, M.dark, 1.10, 0.38, 0.036, 0, 0.975, 0.058, false);
-    for (let i = 0; i < 3; i++) box(exterior, M.trim, 1.08, 0.042, 0.045, 0, 0.855 + i * 0.122, 0.072, false);
-    box(exterior, M.alu, 0.28, 0.105, 0.04, 0, 1.132, 0.104, false);
-    box(exterior, M.trim, 0.66, 0.10, 0.05, 0, 0.655, 0.092, false);
-    [-0.660, 0.660].forEach(x => {
-      const lamp = box(exterior, M.lamp, 0.32, 0.20, 0.055, x, 1.105, 0.098, false);
-      lamp.rotation.y = Math.sign(x) * 0.26;
-      box(exterior, M.trim, 0.17, 0.072, 0.05, x * 0.90, 0.600, 0.088, false);
-    });
-
-    box(exterior, M.trim, 0.52, 0.02, 0.13, -0.28, 1.418, 0.965, false);
-
-    // mirrors, rocker, roof rails, panel seams, handles, mud flaps
-    [-1, 1].forEach(s => {
-      box(exterior, M.trim, 0.12, 0.06, 0.15, s * (HALF + 0.055), 1.88, 1.90, false);
-      const head = box(exterior, M.trim, 0.09, 0.34, 0.21, s * (HALF + 0.175), 1.84, 1.90);
-      head.rotation.y = s * 0.14;
-      box(exterior, M.trim, 0.07, 0.10, L - 2.6, s * (HALF - 0.02), 0.535, (L + 1.8) / 2, false);
-      box(exterior, M.trim, 0.085, 0.05, L - 3.35, s * (HALF - 0.10), H - 0.045, (2.95 + L - 0.30) / 2, false);
-      [2.78, 4.06].forEach(z => box(exterior, M.trim, 0.012, 1.44, 0.014, s * sideX, 1.27, z, false));
-      box(exterior, M.trim, 0.09, 0.045, 0.28, s * sideX, 1.215, 3.80, false);
-      box(exterior, M.trim, 0.05, 0.28, 0.02, s * (HALF - 0.03), 0.30, REAR_AXLE + 0.55, false);
-    });
-
-    // wheels and arch trims
-    ([[FRONT_AXLE, TRACK_F], [REAR_AXLE, TRACK_R]] as [number, number][]).forEach(([z, track]) => {
-      [-1, 1].forEach(s => {
-        const arch = add(exterior, new THREE.TorusGeometry(WHEEL_R + 0.055, 0.05, 10, 28, Math.PI), M.trim,
-          s * (HALF * taperAt(z, L) - 0.015), WHEEL_R, z, false);
-        arch.rotation.y = s * Math.PI / 2;
-        const w = new THREE.Group();
-        tube(w, M.tyre, WHEEL_R, 0.235, 0, 0, 0, 'x');
-        tube(w, M.rim, WHEEL_R * 0.60, 0.245, 0, 0, 0, 'x');
-        tube(w, M.trim, WHEEL_R * 0.17, 0.26, 0, 0, 0, 'x');
-        for (let k = 0; k < 5; k++) {
-          const a = (k / 5) * Math.PI * 2;
-          const spoke = box(w, M.rim, 0.05, WHEEL_R * 0.5, 0.09, 0, Math.sin(a) * WHEEL_R * 0.29, Math.cos(a) * WHEEL_R * 0.29, false);
-          spoke.rotation.x = -a;
-        }
-        w.position.set(s * (track / 2), WHEEL_R, z);
-        exterior.add(w);
-      });
-    });
+    const vanBody = buildVanBody(
+      { length: L, height: H, frontAxle: FRONT_AXLE, rearAxle: REAR_AXLE, wheelR: WHEEL_R, trackF: TRACK_F, trackR: TRACK_R },
+      M, { roofRibs: !flip },
+    );
+    exterior.add(vanBody.group);
+    if (flip) vanBody.shell.geometry = toCreasedNormals(openRoof(vanBody.shell.geometry, H, flipZ), 0.7);
+    // Simple proxy for pin occlusion tests, so labels stay cheap against the detailed body.
+    const shell = new THREE.Mesh(keep(shellGeometry(b)), M.paint);
 
     /* -------------------------- roof equipment -------------------------- */
     const roofKit = new THREE.Group();   // earlier front-sensor interpretation, retained as hidden reference geometry
@@ -1273,9 +1215,12 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     });
 
     /* ---------------------------- environment ---------------------------- */
-    const shadowMat = new THREE.ShadowMaterial({ opacity: 0.16 });
+    const street = buildWorld(renderer, scene);
+    const fx = createPostFx(renderer, scene, perspectiveCamera);
+    fx.setCamera(camera);
+    const shadowMat = new THREE.ShadowMaterial({ opacity: 0.55 });
     owned.push(shadowMat);
-    const shadowPlane = add(scene, new THREE.PlaneGeometry(22, 22), shadowMat, 0, 0, L / 2, false);
+    const shadowPlane = add(scene, new THREE.PlaneGeometry(30, 30), shadowMat, 0, 0.012, L / 2, false);
     shadowPlane.rotation.x = -Math.PI / 2;
     shadowPlane.receiveShadow = true;
 
@@ -1297,9 +1242,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       g.fillStyle = fade; g.fillRect(0, 0, s, s);
       return new THREE.CanvasTexture(c);
     })();
-    const gridMat = new THREE.MeshBasicMaterial({ map: gridTex, color: 0x33506a, transparent: true, opacity: 0.18, depthWrite: false });
+    const gridMat = new THREE.MeshBasicMaterial({ map: gridTex, color: 0xffffff, transparent: true, opacity: 0.1, depthWrite: false });
     owned.push(gridMat);
-    const grid = add(scene, new THREE.PlaneGeometry(40, 40), gridMat, 0, 0.002, L / 2, false);
+    const grid = add(scene, new THREE.PlaneGeometry(40, 40), gridMat, 0, 0.016, L / 2, false);
     grid.rotation.x = -Math.PI / 2;
 
     const limit = new THREE.Group();
@@ -1357,19 +1302,19 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
     /* -------------------------------- views ------------------------------- */
     const VIEWS: Record<View, { pos: THREE.Vector3; target: THREE.Vector3; inside: boolean; shell: number }> = {
-      exterior: { pos: new THREE.Vector3(8.3, 4.5, L + 5.8), target: new THREE.Vector3(0, 1.28, L * 0.54), inside: false, shell: 1 },
+      exterior: { pos: new THREE.Vector3(7.4, 2.5, L + 5.4), target: new THREE.Vector3(0, 1.45, L * 0.54), inside: false, shell: 1 },
       roof: { pos: new THREE.Vector3(0, 12, L * 0.50), target: new THREE.Vector3(0, 1.55, L * 0.50), inside: false, shell: 1 },
       plan: { pos: new THREE.Vector3(0, 12, L * 0.50), target: new THREE.Vector3(0, 1.55, L * 0.50), inside: true, shell: 0.05 },
       interior: { pos: new THREE.Vector3(0.85, 1.88, L + 3.25), target: new THREE.Vector3(0, 1.02, L * 0.52), inside: true, shell: 0.07 },
       rear: { pos: new THREE.Vector3(5.6, 3.0, L + 6.4), target: new THREE.Vector3(0, 1.55, L * 0.82), inside: false, shell: 1 },
-      front: { pos: new THREE.Vector3(-4.4, 3.5, -5.2), target: new THREE.Vector3(0, 2.05, 2.0), inside: false, shell: 1 },
-      cover: { pos: new THREE.Vector3(0, 26, 3.02), target: new THREE.Vector3(0, 0, 3.0), inside: false, shell: 1 },
+      front: { pos: new THREE.Vector3(-4.3, 2.1, -5.4), target: new THREE.Vector3(0, 1.62, 2.2), inside: false, shell: 1 },
+      cover: { pos: new THREE.Vector3(0, 26, 3.7), target: new THREE.Vector3(0, 0, 3.0), inside: false, shell: 1 },
     };
-    const fade = [M.paint, M.glass, M.trim, M.lamp, M.tyre, M.rim];
+    const fade = [M.paint, M.glass, M.trim, M.tyre, M.rim, ...vanBody.fadeMaterials];
     fade.forEach(m => { m.transparent = true; });
 
     let currentView: View = view;
-    grid.visible = !flat(view);
+    grid.visible = view === 'cover';
     shadowPlane.visible = !flat(view);
     let wantShell = VIEWS[view].shell;
     const wantPos = VIEWS[view].pos.clone();
@@ -1402,7 +1347,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       pointer.set((clientX - rect.left) / rect.width * 2 - 1, 1 - (clientY - rect.top) / rect.height * 2);
       ray.setFromCamera(pointer, camera);
       if (currentView !== 'roof') {
-        const targets = currentView === 'interior' ? [inside] : scene.children.filter(o => o !== grid && o !== shadowPlane && o !== limit && o !== outline);
+        const targets = currentView === 'interior' ? [inside] : scene.children.filter(o => o !== grid && o !== shadowPlane && o !== limit && o !== outline && o !== street.group);
         const hit = ray.intersectObjects(targets, true).find(h => {
           let node: THREE.Object3D | null = h.object;
           while (node && node !== scene) { if (!node.visible) return false; node = node.parent; }
@@ -1500,6 +1445,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       raf = 0;
       if (document.hidden) return;
       const dt = Math.min(lastTick ? (now - lastTick) / 1000 : 1 / 60, 0.05);
+      if (lastTick) fx.noteFrame(now - lastTick);
       lastTick = now;
       const flipDelta = flipTarget - flipRotor.rotation.x;
       const flipMoving = flip && Math.abs(flipDelta) > 0.00001;
@@ -1531,12 +1477,14 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
 
       const o = M.paint.opacity + (wantShell - M.paint.opacity) * 0.12;
       fade.forEach(m => {
-        m.opacity = m === M.glass ? Math.min(o, 0.9) : o;
+        m.opacity = m === M.glass ? Math.min(o, 0.88) : o;
         m.depthWrite = o > 0.9;
       });
-      shadowMat.opacity = 0.16 * Math.max(0, (o - 0.15) / 0.85);
+      shadowMat.opacity = 0.55 * Math.max(0, (o - 0.15) / 0.85);
+      M.lamp.opacity = 0.3 * o;
       cutaway();
-      renderer.render(scene, camera);
+      fx.setAmbientOcclusion(camera === perspectiveCamera && o > 0.98 && currentView !== 'cover' && currentView !== 'interior');
+      fx.render(now / 1000);
       project();
       if (flying || flipMoving || seatsRotating || moved || Math.abs(o - wantShell) > 0.001) wake();
     };
@@ -1545,6 +1493,7 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       const w = el.clientWidth, h = el.clientHeight;
       if (!w || !h) return;
       renderer.setSize(w, h, false);
+      fx.setSize(w, h);
       perspectiveCamera.aspect = w / h;
       perspectiveCamera.updateProjectionMatrix();
       // Fit the whole van across the roof plan without perspective distortion.
@@ -1568,12 +1517,13 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
     api.current = {
       setView: v => {
         currentView = v;
-        grid.visible = v !== 'roof';
+        grid.visible = v === 'cover';
         shadowPlane.visible = v !== 'roof';
         const nextCamera = flat(v) ? roofCamera : perspectiveCamera;
         if (camera !== nextCamera) {
           camera = nextCamera;
           controls.object = camera;
+          fx.setCamera(camera);
           camera.position.copy(VIEWS[v].pos);
           controls.target.copy(VIEWS[v].target);
           controls.update();
@@ -1632,6 +1582,9 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       geoms.forEach(g => g.dispose());
       owned.forEach(m => m.dispose());
       gridTex.dispose();
+      fx.dispose();
+      street.dispose();
+      vanBody.dispose();
       renderer.dispose();
       api.current = null;
     };
@@ -1664,9 +1617,6 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
           <line key={id} x1={pos.ax} y1={pos.ay} x2={pos.x} y2={pos.y} />
         ))}
       </svg>
-      <button type="button" className="pin-toggle" onClick={() => setShowPins(v => !v)}>
-        {showPins ? 'Hide labels' : 'Show labels'}
-      </button>
       <div className="pin-layer">
         {showPins && (Object.entries(positions) as [Part, Screen][]).map(([id, pos]) => pos.visible && (
           <button
@@ -1711,11 +1661,10 @@ export default function VanScene({ view, body, selected, showLimit, showRearFram
       <div className="pin-layer">
         {(['front', 'rear'] as const).map(id => axis[id]?.visible && (
           <div key={id} className="axis-tag" style={{ left: axis[id].x, top: axis[id].y }}>
-            {id === 'front' ? 'FRONT / 车头' : 'REAR / 车尾'}
+            {id === 'front' ? 'FRONT' : 'REAR'}
           </div>
         ))}
       </div>
-      <div className="stage-scale">FORD ENVELOPE &middot; METRES &middot; EQUIPMENT POSITION CONCEPTUAL</div>
     </div>
   );
 }
