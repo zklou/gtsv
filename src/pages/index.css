@@ -89,6 +89,7 @@ a { color: var(--accent); }
 .fan-front { background: #2f8c97; }
 .fan-side { background: #b3a369; }
 .fan-tail { background: #3f68b5; }
+.legend i.scan { background: radial-gradient(circle, #e8487a 0 1.6px, transparent 2px) 0 0 / 4px 4px; border-radius: 2px; }
 
 /* Pins and labels drawn by the scene */
 .pin-layer { position: absolute; inset: 0; pointer-events: none; }

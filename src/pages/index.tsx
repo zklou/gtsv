@@ -17,12 +17,12 @@ const facing = (c: typeof BROW_CAMERAS[number]) => c.tail
 const cameraLine = (c: typeof BROW_CAMERAS[number]) => `${c.id} · ${c.role} · ${facing(c)} · ${c.hfov}° lens`;
 
 const detail: Record<Part, DeviceSpec> = {
-  browShell: { title: 'Printed weather fairing', items: ['UV-stable ASA or similar, printed in sections', 'Glass camera windows with gaskets', 'Breather vent against condensation', 'Carries no sensor load'], status: 'The fairing only keeps weather out. In the model it stops about 2 cm above the top of the windshield, so the glass stays clear. Section count, wall thickness and sealing need a printed trial.' },
-  browBar: { title: 'Rigid aluminium sensor frame', items: ['Transverse bar, illustrative 1.46 m', 'Two outriggers for the rear-side cameras, inside mirror width', 'Centre mast with rear brace', 'Body mounts on the brow panel, positions TBD'], status: 'Every sensor shares this frame so the calibration holds. The fairing fades while this item is selected. The body structure behind the brow is not confirmed, so the mounts cannot be dimensioned yet.' },
+  browShell: { title: 'Folded camera housing', items: ['Flat aluminium or ABS sheet, folded; no curved panels', 'Tall centre round the forward and road cameras, low wings for the stereo pair', 'Back edge scribed to the brow panel and sealed', 'Corner cameras in their own hooded cases at the bar ends', 'Glass camera windows with gaskets', 'Breather vent against condensation', 'Carries no sensor load'], status: 'Every top corner sits under the lowest LiDAR beam with 3° to spare, so the simulation finds no beams lost to the housing. The centre is 25 cm tall and the wings 11 cm. It stops about 2 cm above the windshield, so the glass stays clear.' },
+  browBar: { title: 'Rigid aluminium sensor frame', items: ['Transverse bar, illustrative 1.46 m, inside the housing', 'Two outriggers for the rear-side cameras, inside mirror width', 'Ø110 mm aluminium tube for the LiDAR, cut once at the foot, round top plate', 'Gusset inside the housing from the bar to the foot of the tube', 'Feet on the brow panel inside the wings; body mounts TBD'], status: 'Every sensor shares this frame so the calibration holds. It needs only stock bar, tube, flat plate and folded sheet. The LiDAR stands about 21 cm clear of the housing, with its finned base in open air for cooling. The housing fades while this item is selected. The body structure behind the brow is not confirmed, so the mounts cannot be dimensioned yet.' },
   browCams: { title: 'Front surround cameras × 8', items: BROW_CAMERAS.filter(c => !c.tail).map(cameraLine), status: 'Replaces the 360 camera. The eight fields overlap from straight ahead round to the rear quarters on both sides. Camera models, lenses and synchronisation are TBD.' },
   browTail: { title: 'Tail cameras × 2', items: [...BROW_CAMERAS.filter(c => c.tail).map(cameraLine), 'Brackets on the fixed roof edge, clear of the rear doors', 'Sealed roof gland at each bracket'], status: 'These close the blind strip behind the van, and their fields cross behind the tail. With the assumed lens the road is visible from about 2 m behind the van. They are not on the front frame, so they need their own calibration. Rear-facing lenses collect road spray, so plan for cleaning.' },
-  browLidar: { title: 'LiDAR on the centre mast', items: ['LiDAR × 1, colour LiDAR preferred, model TBD', 'Optical centre about 2.87 m above ground, just above the roof line'], status: 'Clear all the way around at the horizon. Road surface is visible from about 1.2 m ahead of the bumper and about 8 m out to each side. The van body blocks the road behind.' },
-  browGnss: { title: 'GNSS antenna and IMU', items: ['RTK / PPK GNSS antenna on top of the LiDAR stack', 'IMU on the rigid frame directly below the LiDAR'], status: 'The antenna is the highest point at the front of the van, with open sky above it. Receiver and IMU models are TBD. Check roof and A/C multipath in a field test.' },
+  browLidar: { title: 'LiDAR on a short tilted post', items: ['Ouster OS1-128 Rev8, native colour, 128 channels, 44° vertical', '90 m on a 10 % target; 2.6 M points/s at 2048 × 10 Hz', 'Tipped 15° toward the road on the tube post; optical centre ≈ 2.72 m', 'Top ≈ 2.76 m, below the 2.80 m roof line', '87 mm across, 74 mm tall, 0.6 kg, about 15 W at 12 or 24 V, PTP time sync'], status: 'Simulated against this model at 40 km/h. Compared with the old mast, the van’s lane gets about 3,600 points per m² instead of 1,230, and the road is visible from 1.7 m ahead of the bumper instead of 5.2 m. About 14 % of beams still land on the van, and it hides the road behind. The sidewalk across a five-lane road gets about a fifth fewer points. The Coverage view shows one rotation. The Sources tab compares the alternatives.'  },
+  browGnss: { title: 'GNSS antenna and IMU', items: ['RTK / PPK survey antenna on a level plate bolted to the front of the roof', 'Lever arm to the IMU surveyed once after fitting', 'IMU on the bar directly under the LiDAR'], status: 'The antenna came off the LiDAR because the LiDAR now tips forward. It is the highest point of the array, with open sky; only the A/C behind it rises above it, by about 4° of elevation. Receiver and IMU models are TBD. Check roof and A/C multipath in a field test.' },
   browCable: { title: 'Cable route to the workstation', items: ['Sealed gland through the brow panel', 'Conduit above the ceiling liner, down the left wall to the workstation', 'Short second run from the tail cameras to the workstation', 'Pull cord left in place for later cables'], status: 'Install this before the ceiling liner closes, so raise it with Leonard at the drop-off strategy meeting. The route is conceptual.' },
   flipHatch: { title: 'Roof opening & transverse hinge', items: ['Reinforced roof opening, illustrative 0.84 × 2.40 m', 'Transverse pivot with two bearing brackets', 'Reversible carrier panel with perimeter seal'], status: 'The hinge sits within the opening to let the entire assembly rotate through 180°. Roof reinforcement, sealing and drainage need a measured design.' },
   flipPackage: { title: 'Complete flip-in sensor assembly', items: ['360 camera and articulated mast', 'GNSS receiver, cylindrical LiDAR and side camera modules', 'Common rigid mounting plates; all equipment flips together', 'Cable run to the hinge with a flexible service loop'], status: 'Geometry follows the supplied reference image. Instrument identities, mass and dimensions are illustrative pending an equipment inventory.' },
@@ -308,9 +308,9 @@ export default function Home() {
       alert: `No rear carrier, no sensors and no workstation. The gold patch on the rear roof is held clear for the phase-two sensor carrier. The translucent volumes inside are the shelving and worktop discussed on 21 October, which appear on neither quote. The A/C at ${metres(heights.ac)} is the highest point on the van in this scope.`,
     },
     brow: {
-      summary: 'One rigid aluminium frame above the windshield carries eight HD cameras, the LiDAR, the GNSS antenna and the IMU. Two more HD cameras on the rear roof edge cover the view behind the van. Open Coverage to see what the cameras see.',
+      summary: 'One rigid aluminium frame above the windshield carries eight HD cameras, the LiDAR and the IMU; the GNSS antenna sits just behind it at the front of the roof. Two more HD cameras on the rear roof edge cover the view behind the van. Open Coverage to see what the cameras and the LiDAR see.',
       alertTitle: 'Confirm before fabrication',
-      alert: `The glass stays clear and the array does not raise the van above the ${metres(heights.ac)} A/C. The tail cameras close the view behind the van, but the LiDAR still cannot see the road behind it. Confirm the body structure behind the brow, the total weight and Ford’s mounting limits.`,
+      alert: `The glass stays clear, the LiDAR stays below the roof line and nothing rises above the ${metres(heights.ac)} A/C. The tail cameras close the view behind the van, but the LiDAR still cannot see the road behind it. Confirm the body structure behind the brow, the total weight and Ford’s mounting limits.`,
     },
     flip: {
       summary: 'A single carrier keeps the camera, LiDAR and GNSS together. Release the latches, turn the grab rail by hand, and latch at the other end. The teal outline reserves the full movement space inside the cabin.',
@@ -334,8 +334,8 @@ export default function Home() {
     { label: 'With rear A/C', note: 'Highest point in this scope', value: `≈ ${metres(heights.ac)}`, active: true },
   ] : browing ? [
     { label: 'Bare high roof', note: 'Ford published', value: metres(heights.roof) },
-    { label: 'Fairing top', note: 'Below the roof line', value: `≈ ${metres(heights.browFairing)}`, active: true },
-    { label: 'LiDAR + GNSS top', note: 'Centre mast only', value: `≈ ${metres(heights.browTop)}` },
+    { label: 'LiDAR top', note: 'Below the roof line', value: `≈ ${metres(heights.browLidarTop)}`, active: true },
+    { label: 'GNSS antenna top', note: 'Highest point of the array', value: `≈ ${metres(heights.browTop)}` },
     { label: 'With rear A/C', note: 'Still the highest point', value: `≈ ${metres(heights.ac)}` },
   ] : flipping ? [
     { label: 'Working', note: 'Complete assembly above roof', value: `≈ ${metres(heights.roof + FLIP.pivotRise + FLIP.sensorTop)}`, active: flipAngle === 0 },
@@ -384,7 +384,7 @@ export default function Home() {
 
         <div className="viewport-foot">
           {addMode ? <p className="hint float">Click the van or equipment to place a point</p>
-            : browing && view === 'cover' ? <p className="hint float legend"><span><i className="fan-front" />Forward and corner</span><span><i className="fan-side" />Rear-side</span><span><i className="fan-tail" />Tail</span><span>Fan length is schematic</span></p>
+            : browing && view === 'cover' ? <p className="hint float legend"><span><i className="fan-front" />Forward and corner</span><span><i className="fan-side" />Rear-side</span><span><i className="fan-tail" />Tail</span><span><i className="scan" />LiDAR, one rotation</span><span>Fan length is schematic</span></p>
             : !hintSeen ? <p className="hint float">Drag to orbit · Scroll to zoom · Click a pin for details</p> : null}
           <Segmented className="view-switch float" label="Camera view" value={view} options={viewOptions} onChange={next => { setView(next); if (next === 'rear') setRearFrame(true); }} />
         </div>
@@ -503,6 +503,28 @@ export default function Home() {
               <Fold title="VIN 1FTBW3X83TKA11541"><p>Decodes clean through NHTSA vPIC: 2026 Ford Transit-350 cargo van, high roof, RWD, 3.5 L V6, 147.6 in wheelbase, GVWR 9,500 lb, built at Claycomo. It cannot separate the 235.5 in body from the 263.9 in extended body — both use that wheelbase.</p></Fold>
               <Fold title="Ford dimensions"><p>Length, height, width, overhangs, load floor height and every cargo dimension come from Ford&rsquo;s published Transit table. The built model measures 6.703 × 2.804 × 2.065 m, matching 263.9 / 110.4 / 81.3 in exactly.</p></Fold>
             </Section>
+            <Section title="LiDAR choice, simulated">
+              <Fold title="Ouster OS1-128 Rev8, tipped 15° on a short post"><p>Sheet 03 asks for a colour LiDAR and notes the OS0. Ouster&rsquo;s Rev8 family is the only one with native colour. From the brow, the OS0&rsquo;s lower beams mostly land on the hood and its 35 m range reaches dark asphalt only about 16 m out, so the OS1 does more from the same spot. A 15° forward tilt puts the beams that the roof would block onto the road ahead instead.</p>
+                <dl className="kv">{[
+                  ['Colour', 'Native RGB per point'], ['Range on a 10 % target', '90 m'], ['Channels, vertical field', '128, 44°'],
+                  ['Body', '87 × 74 mm, 0.6 kg, ≈ 15 W'], ['Mode simulated', '2048 × 10 Hz, 2.6 M pts/s'],
+                ].map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></Fold>
+              <Fold title="Candidates on the same mount"><p>Points per m² in the van&rsquo;s lane at 40 km/h, and how far out dark asphalt still returns.</p>
+                <dl className="kv">{[
+                  ['Ouster OS0-128 Rev8', '90° vertical, colour; much of it lands on the van', '2,280 · 16 m'],
+                  ['Ouster OS1-128 Rev8', 'Recommended', '3,610 · 30 m'],
+                  ['Ouster OS1 Max Rev8', '256 channels, colour; body size not yet published', '7,350 · 51 m'],
+                  ['Hesai OT128', 'No colour, 118 × 132 mm, 29 W', '5,910 · 51 m'],
+                ].map(([k, n, v]) => <div key={k}><dt>{k}<small>{n}</small></dt><dd>{v}</dd></div>)}</dl>
+                <p className="fine">The OS1 Max is the upgrade if Ouster&rsquo;s quote allows it; confirm its size before the post and top plate are made. Hesai is on the US Defense Department&rsquo;s 1260H list, so ask GT procurement before buying one with federal or GDOT money.</p></Fold>
+              <Fold title="Old mast against the short post"><p>The same OS1-128, before and after. The lower, tilted post trades some reach across a wide road for a much denser near field and a lower top.</p>
+                <dl className="kv">{[
+                  ['Road visible ahead of the bumper', '5.2 → 1.7 m'], ['Van’s lane', '1,230 → 3,610 pts/m²'], ['Near kerb face', '250 → 660 hits/m'],
+                  ['Near sidewalk', '1,590 → 3,180 pts/m²'], ['Sidewalk across five lanes', '780 → 610 pts/m²'], ['Signs 2–4 m high, roadside', '15,600 → 13,200 pts/m²'],
+                  ['Beams lost on the van', '17 → 14 %'], ['Top of the LiDAR', '2.93 → 2.76 m'],
+                ].map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></Fold>
+              <Fold title="How the simulation works"><p><code>tools/lidar-sim.mts</code> casts every beam of each sensor&rsquo;s published layout from ten candidate mounts against the van body, fixtures and housing drawn here, onto the street around the van: lanes, 15 cm kerbs, sidewalks, a building line and a 5 m bridge soffit. A return counts only if the link budget allows it: spec range on 10 % × √(reflectivity × cos incidence ÷ 0.1), with asphalt at 12 % and concrete at 30 %. Densities scale with 1 / speed. It also reports how far each housing corner sits under the lowest beam, and writes the occlusion mask that the Coverage view draws.</p></Fold>
+            </Section>
             <Section title="PathRunner: what is worth copying">
               <Fold title="Comparable chassis, different roof problem"><p>Pathway Services list an extended-wheelbase Transit as a preferred chassis. The photo shows a rear cantilever and two sensor housings well above the roof. Their actual dimensions are not published here; the frame and height in this model are visual estimates for our high-roof van.</p></Fold>
               <Fold title="Rear sensing, two levels of detail"><p>The corrected base concept places the existing sensors on a rear carrier and the A/C forward. The PathRunner view adds the raised cantilever, two upper housings, lower pavement bar, DMI and front carrier as a reference. The lower crossarm option is hypothetical and may block forward views.</p></Fold>
@@ -510,7 +532,7 @@ export default function Home() {
               <Fold title="DMI"><p>An optical wheel encoder on a road wheel, with a documented bounce, block and calibration procedure. The old van&rsquo;s flight case is labelled &ldquo;DMI, Encoder, GPS&rdquo;, so we may already own one.</p></Fold>
             </Section>
             <Section title="Not sourced">
-              <Fold warn title="Every equipment size"><p>Sensor bodies, the crossbeam, the A/C unit, the reused rack and all cabin furniture are representative volumes in plausible positions. None are measured. Get drawings and weigh the parts before anything is fabricated.</p></Fold>
+              <Fold warn title="Every equipment size"><p>Apart from the LiDAR, which follows Ouster&rsquo;s datasheet, the sensor bodies, the crossbeam, the A/C unit, the reused rack and all cabin furniture are representative volumes in plausible positions. None are measured. Get drawings and weigh the parts before anything is fabricated.</p></Fold>
             </Section>
             <Section title="References">
               <div className="links">
@@ -521,6 +543,10 @@ export default function Home() {
                 <a href="https://dot.nj.gov/transportation/eng/pavement/pdf/Pathway-Startup.pdf" target="_blank" rel="noreferrer">NJDOT · PathRunner operator manual (PDF) ↗</a>
                 <a href="https://dot.nj.gov/transportation/eng/pavement/pdf/Pathrunner-Calibrate.pdf" target="_blank" rel="noreferrer">NJDOT · PathRunner DMI calibration (PDF) ↗</a>
                 <a href="https://www.pavemetrics.com/laser-crack-measurement-system-lcms-2/" target="_blank" rel="noreferrer">Pavemetrics · LCMS-2 ↗</a>
+                <a href="https://data.ouster.io/downloads/datasheets/datasheet-rev8-v4p0-os1.pdf" target="_blank" rel="noreferrer">Ouster · OS1 Rev8 datasheet (PDF) ↗</a>
+                <a href="https://data.ouster.io/downloads/datasheets/datasheet-rev8-v4p0-os0.pdf" target="_blank" rel="noreferrer">Ouster · OS0 Rev8 datasheet (PDF) ↗</a>
+                <a href="https://investors.ouster.com/news-releases/news-release-details/ouster-releases-rev8-os-family-worlds-first-native-color-lidar" target="_blank" rel="noreferrer">Ouster · Rev8 release and OS1 Max ↗</a>
+                <a href="https://hesaitech.com/product/ot128" target="_blank" rel="noreferrer">Hesai · OT128 ↗</a>
               </div>
             </Section>
           </>}

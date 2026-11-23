@@ -1,0 +1,585 @@
+<title>Unit 1705 LiDAR Coverage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
+<style>
+/* Layout: one reading column of figures drawn to true metric scale, each with its reading note
+   above and its legend below; the mount switcher at the top drives every figure. */
+:root {
+  --font-text: 'DM Sans', 'Helvetica Neue', Arial, sans-serif;
+  --font-data: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --surface: #ffffff;
+  --plane: #f4f6f7;
+  --line: #dfe4e8;
+  --ink: #15212c;
+  --muted: #55636e;
+  --faint: #8a969f;
+  --accent: #003057;
+  --accent-tint: #e6edf4;
+  --mark: #b49b45;
+
+  /* map */
+  --map-road: #dde1e4;
+  --map-walk: #eceff1;
+  --map-grass: #e1e7da;
+  --map-paint: #9aa4ab;
+  --map-yellow: #c4a64a;
+  --van: #c7d0d7;
+  --van-edge: #4a5864;
+  --grid: #e7ebee;
+
+  /* closest range, near to far: one blue ramp */
+  --r0: #104281; --r1: #1c5cab; --r2: #2a78d6; --r3: #5598e7; --r4: #86b6ef; --r5: #b7d3f6;
+  /* the three set-ups, fixed order */
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --lost: #8a969f;
+
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #0f161c; --plane: #151e26; --line: #26323c; --ink: #e5eaee; --muted: #a0adb7; --faint: #6f7d88;
+    --accent: #8fb9e6; --accent-tint: #1a2a3a; --mark: #c9b672;
+    --map-road: #222c35; --map-walk: #2b3640; --map-grass: #1f2b24; --map-paint: #64717c; --map-yellow: #a08d52;
+    --van: #3a4753; --van-edge: #aab6c0; --grid: #1c262f;
+    --r0: #cde2fb; --r1: #9ec5f4; --r2: #6da7ec; --r3: #3987e5; --r4: #256abf; --r5: #1c5cab;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --lost: #6f7d88;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --surface: #0f161c; --plane: #151e26; --line: #26323c; --ink: #e5eaee; --muted: #a0adb7; --faint: #6f7d88;
+  --accent: #8fb9e6; --accent-tint: #1a2a3a; --mark: #c9b672;
+  --map-road: #222c35; --map-walk: #2b3640; --map-grass: #1f2b24; --map-paint: #64717c; --map-yellow: #a08d52;
+  --van: #3a4753; --van-edge: #aab6c0; --grid: #1c262f;
+  --r0: #cde2fb; --r1: #9ec5f4; --r2: #6da7ec; --r3: #3987e5; --r4: #256abf; --r5: #1c5cab;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --lost: #6f7d88;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface); color: var(--ink);
+  font: 400 15px/1.55 var(--font-text); font-variant-numeric: tabular-nums;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1120px; margin: 0 auto; padding-block: 40px 72px; display: grid; gap: 56px; }
+h1, h2, p, dl, dd { margin: 0; }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.1; font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 20px; line-height: 1.25; font-weight: 600; text-wrap: balance; }
+.eyebrow { font: 500 12px/16px var(--font-data); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.lead { max-width: 66ch; color: var(--muted); font-size: 16px; }
+.head { display: grid; gap: 16px; }
+.back { justify-self: start; font-size: 14px; font-weight: 500; color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+
+.switch { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.switch button {
+  display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 500 14px/18px var(--font-text); cursor: pointer;
+}
+.switch button small { color: var(--muted); font-weight: 400; }
+.switch button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent); }
+.switch button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.sw.post { background: var(--s1); } .sw.mast { background: var(--s2); } .sw.os0 { background: var(--s3); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stats > div { background: var(--surface); padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.stats dt { font-size: 13px; line-height: 1.3; color: var(--muted); }
+.stats dd { font: 500 22px/1.2 var(--font-data); }
+.stats dd span { font-size: 13px; color: var(--muted); margin-left: 2px; }
+.stats .was { font: 400 12px/1.3 var(--font-data); color: var(--faint); }
+
+.fig { display: grid; gap: 14px; }
+.fig .read { max-width: 72ch; color: var(--muted); }
+.plot { position: relative; width: 100%; }
+.plot canvas, .plot svg { display: block; width: 100%; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 2; padding: 7px 10px; border-radius: 6px; max-width: 260px;
+  background: var(--ink); color: var(--surface); font: 400 12px/1.4 var(--font-data); white-space: nowrap;
+}
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 13px; color: var(--muted); }
+.legend .ramp { display: inline-flex; align-items: center; gap: 0; border-radius: 4px; overflow: hidden; }
+.legend .ramp span { display: inline-block; min-width: 46px; padding: 2px 6px; font: 500 11px/16px var(--font-data); text-align: center; }
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.note { font-size: 13px; color: var(--faint); max-width: 80ch; }
+
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; color: var(--accent); font-weight: 500; font-size: 14px; }
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; font-size: 13px; min-width: 560px; }
+th, td { padding: 6px 12px 6px 0; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+td { font-family: var(--font-data); }
+th { font-weight: 500; color: var(--muted); }
+
+.method { display: grid; gap: 12px; max-width: 76ch; }
+.method ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); }
+code { font-family: var(--font-data); font-size: 0.92em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<main class="page">
+  <header class="head">
+    <p class="eyebrow">Unit 503-1705 · brow array · simulated <span id="made"></span></p>
+    <h1>Where the LiDAR reaches</h1>
+    <p class="lead">Every beam of the sensor&rsquo;s published pattern, cast against the same van, camera housing and street as the review page. A return only counts if the sensor&rsquo;s range on that surface allows it. Pick a set-up; every figure follows.</p>
+    <div class="switch" role="group" aria-label="Sensor and mount">
+      <button type="button" id="cfg-post" data-cfg="post" aria-pressed="true"><i class="sw post"></i>OS1-128 on the tilted post <small>proposed</small></button>
+      <button type="button" id="cfg-mast" data-cfg="mast" aria-pressed="false"><i class="sw mast"></i>OS1-128 on the old mast</button>
+      <button type="button" id="cfg-os0" data-cfg="os0" aria-pressed="false"><i class="sw os0"></i>OS0-128 on the tilted post</button>
+    </div>
+    <dl class="stats" id="stats"></dl>
+  </header>
+
+  <section class="fig" aria-labelledby="h-top">
+    <h2 id="h-top">One rotation, seen from above</h2>
+    <p class="read">Each dot is one return on the ground or a kerb face, from a single 0.1 s turn of the sensor, coloured by its distance from the LiDAR. The van drives to the right. Rings mark 5, 10, 20 and 30 m from the LiDAR on the ground. The lanes, kerbs and sidewalks are the ones drawn on the review page.</p>
+    <div class="plot" id="wrap-top"><canvas id="cv-top" role="img" aria-label="Plan view of one LiDAR rotation's ground returns around the van"></canvas><div class="tip" id="tip-top" hidden></div></div>
+    <div class="legend" id="legend-top"></div>
+  </section>
+
+  <section class="fig" aria-labelledby="h-sec">
+    <h2 id="h-sec">What a drive scans across the road, and from how close</h2>
+    <p class="read">A slice across the road, looking forward. As the van drives past, its beams sweep every point in this slice. Colour shows the closest distance from which any beam reaches that point. Close means dense, precise points; pale means the point is only seen from far away. Blank is never reached. Signs and a signal head at standard US heights are drawn for scale.</p>
+    <div class="plot" id="wrap-sec"><canvas id="cv-sec" role="img" aria-label="Road cross-section coloured by the closest distance the LiDAR scans each point from"></canvas><div class="tip" id="tip-sec" hidden></div></div>
+    <div class="legend" id="legend-sec"></div>
+  </section>
+
+  <section class="fig" aria-labelledby="h-side">
+    <h2 id="h-side">Every beam, straight ahead and straight back</h2>
+    <p class="read">The van in side view, with each of the sensor&rsquo;s beams in the centre plane drawn to where it first lands. Grey beams end on the van. The blind zone is the gap between the bumper and the nearest road return within half a metre of the centre line.</p>
+    <div class="plot" id="wrap-side"><svg id="svg-side" role="img" aria-label="Side view of the van with every LiDAR beam ahead and behind"></svg></div>
+    <div class="legend" id="legend-side"></div>
+  </section>
+
+  <section class="fig" aria-labelledby="h-den">
+    <h2 id="h-den">Points per square metre after one pass</h2>
+    <p class="read">Driving straight at 40 km/h with the sensor at 2048 &times; 10 Hz, every frame repeats the same pattern, so ground density depends only on the distance across the road. Averaged over 0.5 m. Density halves at 80 km/h.</p>
+    <div class="plot" id="wrap-den"><svg id="svg-den" role="img" aria-label="Ground point density across the road for the three set-ups"></svg><div class="tip" id="tip-den" hidden></div></div>
+    <div class="legend" id="legend-den"></div>
+    <details>
+      <summary>Show the numbers</summary>
+      <div class="table-wrap"><table id="table-den"></table></div>
+    </details>
+  </section>
+
+  <section class="method" aria-labelledby="h-method">
+    <h2 id="h-method">How this was computed</h2>
+    <ul>
+      <li>Beam layouts from the Ouster Rev8 datasheets: OS1 128 beams evenly from &minus;22&deg; to +22&deg;, OS0 from &minus;45&deg; to +45&deg;, 2048 columns per turn.</li>
+      <li>Mounts from the model: tilted post at 2.72 m, tipped 15&deg; toward the road; old mast at 2.87 m, upright. The van, mirrors, A/C, camera housing, cameras and frame are the review page&rsquo;s own geometry.</li>
+      <li>Range model: a surface of reflectivity &rho; seen at incidence <i>i</i> returns out to the datasheet 10&nbsp;% range &times; &radic;(&rho; cos <i>i</i> / 0.1). Asphalt 12&nbsp;%, concrete 30&nbsp;%, grass 40&nbsp;% at 865&nbsp;nm. The slice assumes a 30&nbsp;% surface facing the sensor, capped at 60&nbsp;m.</li>
+      <li>The street is flat and straight, with nothing else on it. Parked cars, other traffic and trees would hide parts of what is shown.</li>
+      <li>Regenerate with <code>npx tsx tools/lidar-sim.mts --chosen --coverage lidar-coverage.html</code> in the <code>gtsv</code> repository.</li>
+    </ul>
+  </section>
+</main>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+(() => {
+  const DATA = JSON.parse(document.getElementById('data').textContent);
+  const bytes = s => { const b = atob(s), u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+  const FIG = {};
+  DATA.figures.forEach(f => {
+    FIG[f.id] = { ...f, topPts: new Int16Array(bytes(f.top).buffer), surfArr: bytes(f.surf), envArr: bytes(f.env) };
+  });
+  const ORDER = ['post', 'mast', 'os0'];
+  const SERIES = { post: '--s1', mast: '--s2', os0: '--s3' };
+  const NAME = { post: 'OS1-128, tilted post', mast: 'OS1-128, old mast', os0: 'OS0-128, tilted post' };
+  const S = DATA.street;
+  const BANDS = [5, 10, 15, 20, 30, 60];
+  const BAND_LABEL = ['< 5 m', '5–10', '10–15', '15–20', '20–30', '30–60'];
+  let current = 'post';
+  document.getElementById('made').textContent = new Date(DATA.made + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const ramp = () => ['--r0', '--r1', '--r2', '--r3', '--r4', '--r5'].map(css);
+  const bandOf = r => { for (let i = 0; i < BANDS.length; i++) if (r < BANDS[i]) return i; return BANDS.length - 1; };
+  const fmt = (v, d = 0) => v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+  /* ---------- derived numbers ---------- */
+  const smooth = (arr, w = 5) => arr.map((_, i) => { let s = 0, n = 0; for (let k = i - (w >> 1); k <= i + (w >> 1); k++) if (k >= 0 && k < arr.length) { s += arr[k]; n++; } return s / n; });
+  // same bin grouping as tools/lidar-sim.mts, so the figures match the review page
+  const band = (f, a, b) => { const x0 = DATA.densityBins.x0, st = DATA.densityBins.step; let s = 0, n = 0; for (let i = Math.round((a - x0) / st); i < Math.round((b - x0) / st); i++) { s += f.density[i]; n++; } return s / n; };
+  const metrics = id => {
+    const f = FIG[id], p = f.topPts;
+    let ahead = Infinity, reach = 0;
+    for (let i = 0, j = 0; i < p.length; i += 3, j++) {
+      const x = p[i] / 100, z = p[i + 1] / 100, r = p[i + 2] / 4;
+      if (Math.abs(x) < 0.5 && z < 0.04) ahead = Math.min(ahead, 0.04 - z);
+      if (f.surfArr[j] === 0) reach = Math.max(reach, r);
+    }
+    return {
+      ahead, reach, lost: f.lostShare * 100,
+      lane: band(f, -1.85, 1.85), walkR: band(f, S.kerbRight, S.kerbRight + S.sidewalk), walkL: band(f, S.kerbLeft - S.sidewalk, S.kerbLeft),
+    };
+  };
+  const M = Object.fromEntries(ORDER.map(id => [id, metrics(id)]));
+
+  function renderStats() {
+    const m = M[current], old = M.mast, cmp = current !== 'mast';
+    const rows = [
+      ['Road visible ahead of the bumper', fmt(m.ahead, 1), 'm', fmt(old.ahead, 1) + ' m'],
+      ['Van’s own lane, after one pass', fmt(m.lane), 'pts/m²', fmt(old.lane)],
+      ['Kerbside sidewalk', fmt(m.walkR), 'pts/m²', fmt(old.walkR)],
+      ['Sidewalk across five lanes', fmt(m.walkL), 'pts/m²', fmt(old.walkL)],
+      ['Beams lost on the van', fmt(m.lost, 0), '%', fmt(old.lost, 0) + ' %'],
+      ['Asphalt returns out to', fmt(m.reach, 0), 'm', fmt(old.reach, 0) + ' m'],
+    ];
+    document.getElementById('stats').innerHTML = rows.map(([k, v, u, o]) =>
+      `<div><dt>${k}</dt><dd>${v}<span>${u}</span></dd>${cmp ? `<p class="was">Old mast ${o}</p>` : ''}</div>`).join('');
+  }
+
+  /* ---------- canvas helpers ---------- */
+  function setupCanvas(cv, w, h) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    cv.style.height = h + 'px';
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    return g;
+  }
+  const font = (px, mono) => `${mono ? 500 : 500} ${px}px ${mono ? css('--font-data') : css('--font-text')}`;
+  function label(g, text, x, y, opt = {}) {
+    g.font = font(opt.size || 12, opt.mono);
+    g.textAlign = opt.align || 'left'; g.textBaseline = opt.base || 'middle';
+    if (opt.halo) { g.lineWidth = 4; g.strokeStyle = css('--surface'); g.lineJoin = 'round'; g.strokeText(text, x, y); }
+    g.fillStyle = opt.color || css('--muted'); g.fillText(text, x, y);
+  }
+
+  /* ---------- figure 1: plan view ---------- */
+  const TOP = { fMin: -9, fMax: 34, xMin: -18.6, xMax: 7.6, padL: 58, padR: 14, padT: 10, padB: 40 };
+  let topMap = null;
+  function drawTop() {
+    const wrap = document.getElementById('wrap-top'), cv = document.getElementById('cv-top');
+    const W = wrap.clientWidth, k = (W - TOP.padL - TOP.padR) / (TOP.fMax - TOP.fMin);
+    const H = TOP.padT + TOP.padB + (TOP.xMax - TOP.xMin) * k;
+    const g = setupCanvas(cv, W, H);
+    const sx = f => TOP.padL + (f - TOP.fMin) * k, sy = x => TOP.padT + (x - TOP.xMin) * k;
+    const fz = z => -z;   // metres ahead of the front bumper
+    topMap = { k, sx, sy, W, H };
+    const f = FIG[current];
+    g.save(); g.beginPath(); g.rect(TOP.padL, TOP.padT, W - TOP.padL - TOP.padR, (TOP.xMax - TOP.xMin) * k); g.clip();
+    // ground: grass, sidewalks, road
+    g.fillStyle = css('--map-grass'); g.fillRect(0, 0, W, H);
+    g.fillStyle = css('--map-walk');
+    g.fillRect(0, sy(S.kerbRight), W, S.sidewalk * k); g.fillRect(0, sy(S.kerbLeft - S.sidewalk), W, S.sidewalk * k);
+    g.fillStyle = css('--map-road'); g.fillRect(0, sy(S.kerbLeft), W, (S.kerbRight - S.kerbLeft) * k);
+    g.strokeStyle = css('--van-edge'); g.globalAlpha = 0.5; g.lineWidth = 1;
+    [S.kerbRight, S.kerbLeft].forEach(x => { g.beginPath(); g.moveTo(0, sy(x)); g.lineTo(W, sy(x)); g.stroke(); });
+    g.globalAlpha = 1;
+    // markings as on the review page
+    g.strokeStyle = css('--map-paint'); g.lineWidth = Math.max(1, 0.13 * k);
+    [1.85, -12.95].forEach(x => { g.beginPath(); g.moveTo(0, sy(x)); g.lineTo(W, sy(x)); g.stroke(); });
+    g.setLineDash([3.05 * k, 9.15 * k]);
+    [-1.85, -9.25].forEach(x => { g.beginPath(); g.moveTo(sx(TOP.fMin), sy(x)); g.lineTo(W, sy(x)); g.stroke(); });
+    g.setLineDash([]);
+    g.strokeStyle = css('--map-yellow'); g.lineWidth = Math.max(1, 0.11 * k);
+    [-5.47, -5.63].forEach(x => { g.beginPath(); g.moveTo(0, sy(x)); g.lineTo(W, sy(x)); g.stroke(); });
+    // rings round the LiDAR
+    const lf = fz(f.mount.z);
+    g.strokeStyle = css('--faint'); g.lineWidth = 1; g.setLineDash([4, 4]);
+    [5, 10, 20, 30].forEach(r => { g.beginPath(); g.arc(sx(lf), sy(0), r * k, 0, Math.PI * 2); g.stroke(); });
+    g.setLineDash([]);
+    // returns
+    const col = ramp(), p = f.topPts, dot = Math.max(1.1, Math.min(2, k * 0.06));
+    for (let i = 0; i < p.length; i += 3) {
+      g.fillStyle = col[bandOf(p[i + 2] / 4)];
+      g.fillRect(sx(fz(p[i + 1] / 100)) - dot / 2, sy(p[i] / 100) - dot / 2, dot, dot);
+    }
+    // van
+    const plan = f.outline.plan;
+    g.beginPath();
+    plan.forEach(([z, h], i) => { const X = sx(fz(z)), Y = sy(h); if (i) g.lineTo(X, Y); else g.moveTo(X, Y); });
+    for (let i = plan.length - 1; i >= 0; i--) g.lineTo(sx(fz(plan[i][0])), sy(-plan[i][1]));
+    g.closePath(); g.fillStyle = css('--van'); g.fill(); g.strokeStyle = css('--van-edge'); g.lineWidth = 1; g.stroke();
+    g.fillStyle = css(SERIES[current]); g.beginPath(); g.arc(sx(lf), sy(0), 4.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = css('--surface'); g.lineWidth = 1.5; g.stroke();
+    // ring labels, on the far side of the road
+    [5, 10, 20, 30].forEach(r => { const a = -Math.PI / 2 + 0.32; const X = sx(lf) + Math.cos(a) * r * k, Y = sy(0) + Math.sin(a) * r * k; if (Y > TOP.padT + 8) label(g, r + ' m', X, Y, { size: 11, mono: true, halo: true, align: 'center' }); });
+    // blind zone ahead
+    const m = M[current], y0 = sy(0);
+    const xA = sx(0), xB = sx(m.ahead);
+    g.strokeStyle = css('--ink'); g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(xA, y0); g.lineTo(xB, y0); g.stroke();
+    [xA, xB].forEach(X => { g.beginPath(); g.moveTo(X, y0 - 5); g.lineTo(X, y0 + 5); g.stroke(); });
+    label(g, `first road return ${fmt(m.ahead, 1)} m ahead`, xB + 6, y0 - 12, { size: 12, color: css('--ink'), halo: true });
+    label(g, 'Ground the van hides from the LiDAR', sx(-3.4), sy(2.6), { size: 12, color: css('--ink'), halo: true, align: 'center' });
+    label(g, '← shadow of the rear-side camera on its outrigger', sx(lf) + 0.9 * k, sy(-14), { size: 12, color: css('--ink'), halo: true });
+    // lane names
+    [['Sidewalk', S.kerbRight + S.sidewalk / 2], ['Shoulder', 2.62], ['Own lane', -0.9], ['Next lane', -3.7], ['Oncoming lanes', -9.25], ['Sidewalk', S.kerbLeft - S.sidewalk / 2]]
+      .forEach(([t, x]) => label(g, t, sx(TOP.fMax) - 6, sy(x), { size: 11, align: 'right', halo: true }));
+    g.restore();
+    // axes
+    g.strokeStyle = css('--line'); g.lineWidth = 1;
+    g.strokeRect(TOP.padL + 0.5, TOP.padT + 0.5, W - TOP.padL - TOP.padR - 1, (TOP.xMax - TOP.xMin) * k - 1);
+    for (let t = -5; t <= TOP.fMax; t += 5) {
+      const X = sx(t); g.beginPath(); g.moveTo(X, H - TOP.padB); g.lineTo(X, H - TOP.padB + 5); g.stroke();
+      label(g, t === 0 ? 'bumper' : (t > 0 ? '+' : '') + t, X, H - TOP.padB + 14, { size: 11, mono: true, align: 'center' });
+    }
+    label(g, 'metres ahead of the front bumper →', W - TOP.padR, H - 8, { size: 11, align: 'right' });
+    for (let x = -15; x <= 5; x += 5) {
+      const Y = sy(x); g.beginPath(); g.moveTo(TOP.padL - 5, Y); g.lineTo(TOP.padL, Y); g.stroke();
+      label(g, x === 0 ? 'centre' : Math.abs(x) + (x < 0 ? ' L' : ' R'), TOP.padL - 8, Y, { size: 11, mono: true, align: 'right' });
+    }
+    // legend
+    document.getElementById('legend-top').innerHTML = rampLegend('Distance from the LiDAR') +
+      `<span class="key"><i class="sw ${current}"></i>LiDAR, ${NAME[current]}</span><span class="key">${fmt(f.topPts.length / 3)} ground returns in this rotation</span>`;
+  }
+  function rampLegend(title) {
+    const col = ramp(), light = [false, false, false, true, true, true];
+    const dark = document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+    return `<span>${title}</span><span class="ramp">${col.map((c, i) => {
+      const onLight = dark ? i < 3 : i >= 3;
+      return `<span style="background:${c};color:${onLight ? '#0b0b0b' : '#ffffff'}">${BAND_LABEL[i]}</span>`;
+    }).join('')}</span>`;
+  }
+  function hoverTop(e) {
+    const tip = document.getElementById('tip-top'), r = e.currentTarget.getBoundingClientRect();
+    if (!topMap) return;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const f = TOP.fMin + (px - TOP.padL) / topMap.k, x = TOP.xMin + (py - TOP.padT) / topMap.k;
+    if (f < TOP.fMin || f > TOP.fMax || x < TOP.xMin || x > TOP.xMax) { tip.hidden = true; return; }
+    const lz = -FIG[current].mount.z, d = Math.hypot(f - lz, x);
+    tip.innerHTML = `${fmt(Math.abs(f), 1)} m ${f >= 0 ? 'ahead of' : 'behind'} the bumper<br>${fmt(Math.abs(x), 1)} m ${x >= 0 ? 'right' : 'left'} of centre<br>${fmt(d, 1)} m from the LiDAR on the ground`;
+    placeTip(tip, px, py, r.width);
+  }
+  function placeTip(tip, px, py, w) {
+    tip.hidden = false;
+    const tw = tip.offsetWidth;
+    tip.style.left = Math.min(w - tw - 4, Math.max(4, px + 14)) + 'px';
+    tip.style.top = Math.max(4, py - tip.offsetHeight - 10) + 'px';
+  }
+
+  /* ---------- figure 2: cross-section ---------- */
+  const SEC = { xMin: -18.6, xMax: 7.6, yMax: 10, yMin: -0.5, padL: 46, padR: 14, padT: 10, padB: 40 };
+  let secMap = null;
+  const REF = [
+    { kind: 'sign', x0: S.kerbRight + 0.6, x1: S.kerbRight + 1.35, y0: 2.13 + S.kerbH, y1: 3.03 + S.kerbH, text: 'Sign, 7 ft to its base' },
+    { kind: 'signal', x0: -3.88, x1: -3.52, y0: 4.6, y1: 5.7, text: 'Signal head, 15 ft clear' },
+  ];
+  function drawSec() {
+    const wrap = document.getElementById('wrap-sec'), cv = document.getElementById('cv-sec');
+    const W = wrap.clientWidth, k = (W - SEC.padL - SEC.padR) / (SEC.xMax - SEC.xMin);
+    const H = SEC.padT + SEC.padB + (SEC.yMax - SEC.yMin) * k;
+    const g = setupCanvas(cv, W, H);
+    const sx = x => SEC.padL + (x - SEC.xMin) * k, sy = y => SEC.padT + (SEC.yMax - y) * k;
+    secMap = { k, sx, sy };
+    const f = FIG[current], G = DATA.grid, col = ramp();
+    g.save(); g.beginPath(); g.rect(SEC.padL, SEC.padT, W - SEC.padL - SEC.padR, (SEC.yMax - SEC.yMin) * k); g.clip();
+    g.fillStyle = css('--plane'); g.fillRect(0, 0, W, H);
+    // closest-range cells
+    const cw = G.step * k + 0.6;
+    for (let j = 0; j < G.ny; j++) for (let i = 0; i < G.nx; i++) {
+      const v = f.envArr[j * G.nx + i]; if (!v) continue;
+      const x = G.x0 + i * G.step, y = G.y0 + j * G.step;
+      if (x + G.step < SEC.xMin || x > SEC.xMax || y > SEC.yMax) continue;
+      g.fillStyle = col[bandOf((v - 1) / 4)];
+      g.fillRect(sx(x), sy(y + G.step), cw, cw);
+    }
+    // ground profile: road at 0, kerbs and sidewalks at 0.15, grass at 0.14
+    g.fillStyle = css('--map-road'); g.fillRect(sx(S.kerbLeft), sy(0), (S.kerbRight - S.kerbLeft) * k, -SEC.yMin * k + 2);
+    g.fillStyle = css('--map-walk');
+    g.fillRect(sx(S.kerbRight), sy(S.kerbH), S.sidewalk * k, (S.kerbH - SEC.yMin) * k + 2);
+    g.fillRect(sx(S.kerbLeft - S.sidewalk), sy(S.kerbH), S.sidewalk * k, (S.kerbH - SEC.yMin) * k + 2);
+    g.fillStyle = css('--map-grass');
+    g.fillRect(sx(S.kerbRight + S.sidewalk), sy(0.14), (SEC.xMax - S.kerbRight - S.sidewalk) * k + 2, (0.14 - SEC.yMin) * k + 2);
+    g.fillRect(0, sy(0.14), sx(S.kerbLeft - S.sidewalk), (0.14 - SEC.yMin) * k + 2);
+    // van, seen from behind its nose: tallest point of every column
+    const fr = f.outline.front;
+    g.beginPath(); g.moveTo(sx(fr[0][0]), sy(0));
+    fr.forEach(([x, y]) => g.lineTo(sx(x), sy(y)));
+    g.lineTo(sx(fr[fr.length - 1][0]), sy(0)); g.closePath();
+    g.fillStyle = css('--van'); g.fill(); g.strokeStyle = css('--van-edge'); g.lineWidth = 1; g.stroke();
+    g.fillStyle = css(SERIES[current]); g.beginPath(); g.arc(sx(0), sy(f.mount.y), 4.5, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = css('--surface'); g.lineWidth = 1.5; g.stroke();
+    // reference objects
+    g.strokeStyle = css('--ink'); g.lineWidth = 1.4;
+    REF.forEach(o => {
+      g.strokeRect(sx(o.x0), sy(o.y1), (o.x1 - o.x0) * k, (o.y1 - o.y0) * k);
+      if (o.kind === 'sign') { g.beginPath(); g.moveTo(sx((o.x0 + o.x1) / 2), sy(o.y0)); g.lineTo(sx((o.x0 + o.x1) / 2), sy(S.kerbH)); g.stroke(); }
+      if (o.kind === 'signal') { g.beginPath(); g.moveTo(sx(o.x0 - 1.5), sy(o.y1 + 0.1)); g.lineTo(sx(o.x1 + 1.5), sy(o.y1 + 0.1)); g.stroke(); }
+      if (o.kind === 'sign') label(g, o.text, Math.min(sx((o.x0 + o.x1) / 2), W - SEC.padR - 70), sy(o.y1) - 12, { size: 12, color: css('--ink'), halo: true, align: 'center' });
+      else label(g, o.text, sx(o.x0) - 6, sy((o.y0 + o.y1) / 2), { size: 12, color: css('--ink'), halo: true, align: 'right' });
+    });
+    g.setLineDash([6, 4]); g.strokeStyle = css('--ink'); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(sx(S.kerbLeft), sy(4.88)); g.lineTo(sx(S.kerbRight), sy(4.88)); g.stroke(); g.setLineDash([]);
+    label(g, '16 ft bridge clearance', sx(S.kerbLeft) + 6, sy(4.88) - 9, { size: 12, color: css('--ink'), halo: true });
+    g.restore();
+    // axes
+    g.strokeStyle = css('--line'); g.lineWidth = 1;
+    g.strokeRect(SEC.padL + 0.5, SEC.padT + 0.5, W - SEC.padL - SEC.padR - 1, (SEC.yMax - SEC.yMin) * k - 1);
+    for (let x = -18; x <= 6; x += 2) {
+      const X = sx(x); g.beginPath(); g.moveTo(X, H - SEC.padB); g.lineTo(X, H - SEC.padB + 5); g.stroke();
+      label(g, x === 0 ? 'centre' : Math.abs(x) + (x < 0 ? ' L' : ' R'), X, H - SEC.padB + 14, { size: 11, mono: true, align: 'center' });
+    }
+    label(g, 'metres from the van’s centre line, looking forward', W - SEC.padR, H - 8, { size: 11, align: 'right' });
+    for (let y = 0; y <= SEC.yMax; y += 2) {
+      const Y = sy(y); g.beginPath(); g.moveTo(SEC.padL - 5, Y); g.lineTo(SEC.padL, Y); g.stroke();
+      label(g, y + ' m', SEC.padL - 8, Y, { size: 11, mono: true, align: 'right' });
+    }
+    document.getElementById('legend-sec').innerHTML = rampLegend('Closest scan') + '<span class="key">Blank: never reached</span>';
+  }
+  function hoverSec(e) {
+    const tip = document.getElementById('tip-sec'), r = e.currentTarget.getBoundingClientRect();
+    if (!secMap) return;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const x = SEC.xMin + (px - SEC.padL) / secMap.k, y = SEC.yMax - (py - SEC.padT) / secMap.k;
+    if (x < SEC.xMin || x > SEC.xMax || y < 0 || y > SEC.yMax) { tip.hidden = true; return; }
+    const G = DATA.grid, i = Math.floor((x - G.x0) / G.step), j = Math.floor((y - G.y0) / G.step);
+    const v = FIG[current].envArr[j * G.nx + i];
+    tip.innerHTML = `${fmt(Math.abs(x), 1)} m ${x >= 0 ? 'right' : 'left'}, ${fmt(y, 1)} m up<br>${v ? 'closest scan ' + fmt((v - 1) / 4, 1) + ' m' : 'never reached'}`;
+    placeTip(tip, px, py, r.width);
+  }
+
+  /* ---------- figure 3: side view ---------- */
+  const SIDE = { fMin: -9, fMax: 24, yMin: -0.3, yMax: 6.5, padL: 46, padR: 14, padT: 10, padB: 40 };
+  const NS = 'http://www.w3.org/2000/svg';
+  function el(tag, attrs, parent) { const n = document.createElementNS(NS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); if (parent) parent.appendChild(n); return n; }
+  function drawSide() {
+    const wrap = document.getElementById('wrap-side'), svg = document.getElementById('svg-side');
+    const W = wrap.clientWidth, k = (W - SIDE.padL - SIDE.padR) / (SIDE.fMax - SIDE.fMin);
+    const H = SIDE.padT + SIDE.padB + (SIDE.yMax - SIDE.yMin) * k;
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.height = H + 'px'; svg.innerHTML = '';
+    const sx = f => SIDE.padL + (f - SIDE.fMin) * k, sy = y => SIDE.padT + (SIDE.yMax - y) * k;
+    const f = FIG[current], lf = -f.mount.z, ly = f.mount.y;
+    const defs = el('defs', {}, svg), clip = el('clipPath', { id: 'side-clip' }, defs);
+    el('rect', { x: SIDE.padL, y: SIDE.padT, width: W - SIDE.padL - SIDE.padR, height: (SIDE.yMax - SIDE.yMin) * k }, clip);
+    const plot = el('g', { 'clip-path': 'url(#side-clip)' }, svg);
+    el('rect', { x: SIDE.padL, y: SIDE.padT, width: W - SIDE.padL - SIDE.padR, height: (SIDE.yMax - SIDE.yMin) * k, fill: css('--plane') }, plot);
+    el('rect', { x: SIDE.padL, y: sy(0), width: W, height: -SIDE.yMin * k, fill: css('--map-road') }, plot);
+    for (let y = 1; y <= SIDE.yMax; y++) el('line', { x1: SIDE.padL, x2: W - SIDE.padR, y1: sy(y), y2: sy(y), stroke: css('--grid'), 'stroke-width': 1 }, plot);
+    const series = css(SERIES[current]), lost = css('--lost');
+    f.beams.forEach(([z, y, what], i) => {
+      const stroke = what === 1 ? lost : series;
+      el('line', { x1: sx(lf), y1: sy(ly), x2: sx(-z), y2: sy(y), stroke, 'stroke-width': what === 0 ? 0.6 : 0.8, 'stroke-opacity': what === 0 ? 0.35 : 0.85, fill: 'none' }, plot);
+      if (what === 2) el('circle', { cx: sx(-z), cy: sy(y), r: 1.6, fill: series }, plot);
+    });
+    // van side outline, drawn over the beams so the ones it stops end at its skin
+    const sd = f.outline.side;
+    let dPath = '';
+    sd.forEach(([z, top], i) => { dPath += (i ? 'L' : 'M') + sx(-z).toFixed(1) + ' ' + sy(top).toFixed(1) + ' '; });
+    for (let i = sd.length - 1; i >= 0; i--) dPath += 'L' + sx(-sd[i][0]).toFixed(1) + ' ' + sy(Math.max(0, sd[i][2])).toFixed(1) + ' ';
+    el('path', { d: dPath + 'Z', fill: css('--van'), stroke: css('--van-edge'), 'stroke-width': 1 }, plot);
+    el('circle', { cx: sx(lf), cy: sy(ly), r: 4.5, fill: series, stroke: css('--surface'), 'stroke-width': 1.5 }, plot);
+    // blind zone dimension
+    const gap = M[current].ahead, nearest = 0.04 - gap, yd = sy(0) - 14;
+    el('line', { x1: sx(0), x2: sx(-nearest), y1: yd, y2: yd, stroke: css('--ink'), 'stroke-width': 1.2 }, plot);
+    [sx(0), sx(-nearest)].forEach(X => el('line', { x1: X, x2: X, y1: yd - 5, y2: yd + 5, stroke: css('--ink'), 'stroke-width': 1.2 }, plot));
+    const t = el('text', { x: sx(-nearest) + 6, y: yd + 4, fill: css('--ink'), 'font-size': 12, 'font-family': css('--font-text'), 'paint-order': 'stroke', stroke: css('--plane'), 'stroke-width': 4 }, plot);
+    t.textContent = `blind zone ${fmt(gap, 1)} m`;
+    const lostN = f.beams.filter(b => b[2] === 1).length;
+    const t2 = el('text', { x: SIDE.padL + 8, y: SIDE.padT + 16, fill: css('--ink'), 'font-size': 12, 'font-family': css('--font-text'), 'text-anchor': 'start', 'paint-order': 'stroke', stroke: css('--plane'), 'stroke-width': 4 }, plot);
+    t2.textContent = `${lostN} of ${f.beams.length} centre-plane beams end on the van`;
+    // axes
+    const ax = el('g', {}, svg);
+    el('rect', { x: SIDE.padL + 0.5, y: SIDE.padT + 0.5, width: W - SIDE.padL - SIDE.padR - 1, height: (SIDE.yMax - SIDE.yMin) * k - 1, fill: 'none', stroke: css('--line') }, ax);
+    const tick = (x, y, text, anchor) => { const n = el('text', { x, y, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-data'), 'text-anchor': anchor }, ax); n.textContent = text; };
+    for (let v = -5; v <= SIDE.fMax; v += 5) { el('line', { x1: sx(v), x2: sx(v), y1: H - SIDE.padB, y2: H - SIDE.padB + 5, stroke: css('--line') }, ax); tick(sx(v), H - SIDE.padB + 17, v === 0 ? 'bumper' : (v > 0 ? '+' : '') + v, 'middle'); }
+    for (let y = 0; y <= SIDE.yMax; y += 2) tick(SIDE.padL - 8, sy(y) + 4, y + ' m', 'end');
+    const cap = el('text', { x: W - SIDE.padR, y: H - 6, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-text'), 'text-anchor': 'end' }, ax);
+    cap.textContent = 'metres ahead of the front bumper →';
+    document.getElementById('legend-side').innerHTML =
+      `<span class="key"><svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="${series}" stroke-width="2"/></svg>Beam that reaches the road or the sky</span>` +
+      `<span class="key"><svg width="22" height="8" aria-hidden="true"><line x1="0" y1="4" x2="22" y2="4" stroke="${lost}" stroke-width="2"/></svg>Beam that ends on the van</span>` +
+      `<span class="key">Vertical and horizontal scales are equal</span>`;
+  }
+
+  /* ---------- figure 4: density across the road ---------- */
+  const DEN = { xMin: -18, xMax: 7.5, padL: 56, padR: 16, padT: 30, padB: 44 };
+  let denMap = null;
+  const SM = Object.fromEntries(ORDER.map(id => [id, smooth(FIG[id].density, 5)]));
+  function drawDen() {
+    const wrap = document.getElementById('wrap-den'), svg = document.getElementById('svg-den');
+    const W = wrap.clientWidth, H = Math.max(260, Math.min(360, W * 0.36));
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.height = H + 'px'; svg.innerHTML = '';
+    const yTop = 5000, x0 = DATA.densityBins.x0, st = DATA.densityBins.step;
+    const sx = x => DEN.padL + (x - DEN.xMin) / (DEN.xMax - DEN.xMin) * (W - DEN.padL - DEN.padR);
+    const sy = v => DEN.padT + (1 - v / yTop) * (H - DEN.padT - DEN.padB);
+    denMap = { sx, sy, W, H, x0, st };
+    // regions of the street
+    const regions = [
+      ['Sidewalk', S.kerbLeft - S.sidewalk, S.kerbLeft, true], ['Oncoming lanes', -12.95, -5.55], ['Next lane', -5.55, -1.85],
+      ['Own lane', -1.85, 1.85], ['Shoulder', 1.85, S.kerbRight], ['Sidewalk', S.kerbRight, S.kerbRight + S.sidewalk, true],
+    ];
+    regions.forEach(([name, a, b, walk]) => {
+      if (walk) el('rect', { x: sx(Math.max(a, DEN.xMin)), y: DEN.padT, width: sx(Math.min(b, DEN.xMax)) - sx(Math.max(a, DEN.xMin)), height: H - DEN.padT - DEN.padB, fill: css('--plane') }, svg);
+      const n = el('text', { x: (sx(Math.max(a, DEN.xMin)) + sx(Math.min(b, DEN.xMax))) / 2, y: DEN.padT - 10, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-text'), 'text-anchor': 'middle' }, svg);
+      n.textContent = (sx(b) - sx(a) > 56 || name === 'Own lane') ? name : '';
+    });
+    for (let v = 0; v <= yTop; v += 1000) {
+      el('line', { x1: DEN.padL, x2: W - DEN.padR, y1: sy(v), y2: sy(v), stroke: v === 0 ? css('--faint') : css('--grid'), 'stroke-width': 1 }, svg);
+      const n = el('text', { x: DEN.padL - 8, y: sy(v) + 4, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-data'), 'text-anchor': 'end' }, svg);
+      n.textContent = fmt(v);
+    }
+    [S.kerbLeft, S.kerbRight].forEach(x => el('line', { x1: sx(x), x2: sx(x), y1: DEN.padT, y2: H - DEN.padB, stroke: css('--faint'), 'stroke-dasharray': '3 3' }, svg));
+    for (let x = -18; x <= 6; x += 2) {
+      el('line', { x1: sx(x), x2: sx(x), y1: H - DEN.padB, y2: H - DEN.padB + 5, stroke: css('--faint') }, svg);
+      const n = el('text', { x: sx(x), y: H - DEN.padB + 18, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-data'), 'text-anchor': 'middle' }, svg);
+      n.textContent = x === 0 ? 'centre' : Math.abs(x) + (x < 0 ? ' L' : ' R');
+    }
+    const cap = el('text', { x: W - DEN.padR, y: H - 6, fill: css('--muted'), 'font-size': 11, 'font-family': css('--font-text'), 'text-anchor': 'end' }, svg);
+    cap.textContent = 'metres from the van’s centre line · ground points per m²';
+    const path = id => { let d = ''; SM[id].forEach((v, i) => { const x = x0 + (i + 0.5) * st; if (x < DEN.xMin || x > DEN.xMax) return; d += (d ? 'L' : 'M') + sx(x).toFixed(1) + ' ' + sy(Math.min(v, yTop)).toFixed(1) + ' '; }); return d; };
+    // the chosen set-up gets an area; the others stay as reference lines
+    const sel = path(current);
+    el('path', { d: sel + `L${sx(DEN.xMax).toFixed(1)} ${sy(0)} L${sx(DEN.xMin).toFixed(1)} ${sy(0)} Z`, fill: css(SERIES[current]), 'fill-opacity': 0.12 }, svg);
+    ORDER.filter(id => id !== current).concat(current).forEach(id => {
+      el('path', { d: path(id), fill: 'none', stroke: css(SERIES[id]), 'stroke-width': id === current ? 2.2 : 1.4, 'stroke-opacity': id === current ? 1 : 0.8, 'stroke-linejoin': 'round' }, svg);
+    });
+    // direct labels at the own lane
+    const at = id => SM[id][Math.round((-0.9 - x0) / st)];
+    const placed = ORDER.map(id => ({ id, y: sy(at(id)) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < placed.length; i++) if (placed[i].y - placed[i - 1].y < 14) placed[i].y = placed[i - 1].y + 14;
+    placed.forEach(p => { const n = el('text', { x: sx(-1.7), y: p.y - 4, fill: css('--ink'), 'font-size': 12, 'font-weight': p.id === current ? 600 : 400, 'font-family': css('--font-text'), 'text-anchor': 'end', 'paint-order': 'stroke', stroke: css('--surface'), 'stroke-width': 4 }, svg); n.textContent = NAME[p.id]; });
+    el('line', { id: 'den-cross', x1: 0, x2: 0, y1: DEN.padT, y2: H - DEN.padB, stroke: css('--muted'), 'stroke-width': 1, visibility: 'hidden' }, svg);
+    document.getElementById('legend-den').innerHTML = ORDER.map(id => `<span class="key"><i class="sw ${id}"></i>${NAME[id]}</span>`).join('');
+  }
+  function hoverDen(e) {
+    const tip = document.getElementById('tip-den'), svg = document.getElementById('svg-den'), r = svg.getBoundingClientRect();
+    if (!denMap) return;
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const x = DEN.xMin + (px - DEN.padL) / (denMap.W - DEN.padL - DEN.padR) * (DEN.xMax - DEN.xMin);
+    const cross = document.getElementById('den-cross');
+    if (x < DEN.xMin || x > DEN.xMax) { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); return; }
+    const i = Math.max(0, Math.min(SM.post.length - 1, Math.floor((x - denMap.x0) / denMap.st)));
+    cross.setAttribute('x1', px); cross.setAttribute('x2', px); cross.setAttribute('visibility', 'visible');
+    tip.innerHTML = `${fmt(Math.abs(x), 1)} m ${x >= 0 ? 'right' : 'left'}<br>` + ORDER.map(id => `${NAME[id]}: ${fmt(SM[id][i])} /m²`).join('<br>');
+    placeTip(tip, px, py, r.width);
+  }
+  function fillTable() {
+    const rows = [
+      ['Own lane', -1.85, 1.85], ['Shoulder', 1.85, S.kerbRight], ['Kerbside sidewalk', S.kerbRight, S.kerbRight + S.sidewalk],
+      ['Next lane', -5.55, -1.85], ['Oncoming lanes', -12.95, -5.55], ['Sidewalk across five lanes', S.kerbLeft - S.sidewalk, S.kerbLeft],
+    ];
+    document.getElementById('table-den').innerHTML =
+      `<thead><tr><th>Ground points per m² at 40 km/h</th>${ORDER.map(id => `<th>${NAME[id]}</th>`).join('')}</tr></thead><tbody>` +
+      rows.map(([n, a, b]) => `<tr><td>${n}</td>${ORDER.map(id => `<td>${fmt(band(FIG[id], a, b))}</td>`).join('')}</tr>`).join('') +
+      `<tr><td>Road visible ahead of the bumper</td>${ORDER.map(id => `<td>${fmt(M[id].ahead, 1)} m</td>`).join('')}</tr>` +
+      `<tr><td>Beams lost on the van</td>${ORDER.map(id => `<td>${fmt(M[id].lost, 1)} %</td>`).join('')}</tr></tbody>`;
+  }
+
+  /* ---------- wiring ---------- */
+  const drawAll = () => { renderStats(); drawTop(); drawSec(); drawSide(); drawDen(); };
+  document.querySelectorAll('.switch button').forEach(b => b.addEventListener('click', () => {
+    current = b.dataset.cfg;
+    document.querySelectorAll('.switch button').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+    drawAll();
+  }));
+  const cvTop = document.getElementById('cv-top'), cvSec = document.getElementById('cv-sec'), svgDen = document.getElementById('svg-den');
+  cvTop.addEventListener('pointermove', hoverTop); cvTop.addEventListener('pointerleave', () => { document.getElementById('tip-top').hidden = true; });
+  cvSec.addEventListener('pointermove', hoverSec); cvSec.addEventListener('pointerleave', () => { document.getElementById('tip-sec').hidden = true; });
+  svgDen.addEventListener('pointermove', hoverDen); svgDen.addEventListener('pointerleave', () => { document.getElementById('tip-den').hidden = true; document.getElementById('den-cross')?.setAttribute('visibility', 'hidden'); });
+  let lastW = 0;
+  new ResizeObserver(() => { const w = document.querySelector('.page').clientWidth; if (Math.abs(w - lastW) > 1) { lastW = w; drawAll(); } }).observe(document.querySelector('.page'));
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  fillTable();
+  drawAll();
+})();
+</script>

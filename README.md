@@ -16,6 +16,11 @@ npm run build
 The Umi 4 / React page is in `src/pages/index.tsx`; the Three.js model is in
 `src/components/VanScene.tsx`. The compiled static site is in `dist/`.
 
+`npx tsx tools/lidar-sim.mts` reruns the LiDAR study: it casts each candidate sensor's beam
+pattern from candidate mounts against the same van and fairing geometry, prints the comparison,
+and rewrites `src/components/lidarMask.json`, which the Coverage view draws. Rerun it after
+changing the brow array in `src/components/browArray.ts`.
+
 ## GitHub Pages
 
 The production build uses `/gtsv/` as its route and asset prefix. A push to

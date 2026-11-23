@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FLIP, openRoof } from './flipMechanism';
 import { toCreasedNormals } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BROW, BROW_CAMERAS, browProfile } from './browArray';
+import { BROW, BROW_CAMERAS, GNSS, LIDAR, housingGeometries, lidarFrame, lidarPostParts, lidarTop, panelY } from './browArray';
+import { lidarFootprint } from './lidarScan';
 import { buildVanBody } from './vanBody';
 import { buildWorld, SUN_DIR } from './worldScene';
 import { createPostFx } from './postFx';
@@ -78,7 +79,7 @@ export function heightCases(body: Body) {
   const pathrunner = Math.max(ac, roof + GANTRY_FRAME_RISE + GANTRY_MAST_RISE);
   const loweredHead = GANTRY_LOW_Y + GANTRY_MAST_RISE;
   const lowered = Math.max(roof, ac, loweredHead);
-  return { roof, ac, sensors, frontCams, rearCarrier, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead, browFairing: BROW.fairingTop, browTop: BROW.top };
+  return { roof, ac, sensors, frontCams, rearCarrier, sheet, pathrunner, raisedBar: roof + GANTRY_FRAME_RISE, lowered, loweredDeck: GANTRY_LOW_Y, loweredHead, browLidarTop: lidarTop(), browTop: Math.max(lidarTop(), roof + GNSS.plate + GNSS.height) };
 }
 
 /* cowl and header define the windscreen plane; reused for the glass */
@@ -119,7 +120,7 @@ export const tags: Record<Part, { label: string; views: View[]; tone: Tone }> = 
   browShell:  { label: 'B1', views: ['front'], tone: 'base' },
   browBar:    { label: 'B2', views: ['front'], tone: 'base' },
   browCams:   { label: 'B3', views: ['front', 'cover', 'roof'], tone: 'base' },
-  browLidar:  { label: 'B4', views: ['front', 'roof'], tone: 'base' },
+  browLidar:  { label: 'B4', views: ['front', 'roof', 'cover'], tone: 'base' },
   browGnss:   { label: 'B5', views: ['front', 'roof'], tone: 'base' },
   browCable:  { label: 'B6', views: ['interior', 'plan'], tone: 'base' },
   browTail:   { label: 'B7', views: ['exterior', 'roof', 'cover'], tone: 'base' },
@@ -1043,43 +1044,45 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     }
 
     /* ---- Windshield-brow array: every exterior sensor on one rigid frame. ----
-       The printed fairing only keeps weather out. The bar, outriggers and mast
+       The folded housing only keeps weather out. The bar, outriggers and LiDAR post
        carry the instruments, so their relative calibration does not depend on it.
     */
     const browArray = new THREE.Group();
     browArray.visible = brow;
     scene.add(browArray);
 
-    const browShellMat = new THREE.MeshPhysicalMaterial({ color: 0xf1f3f4, roughness: 0.52, clearcoat: 0.2, transparent: true });
+    const browShellMat = new THREE.MeshPhysicalMaterial({ color: 0xf1f3f4, roughness: 0.48, clearcoat: 0.3 });
     const browEdgeMat = new THREE.LineBasicMaterial({ color: 0x8f9aa2 });
     owned.push(browShellMat, browEdgeMat);
-    const browShape = new THREE.Shape();
-    browProfile.forEach(([z, y], i) => { if (i) browShape.lineTo(z, y); else browShape.moveTo(z, y); });
-    browShape.closePath();
-    const browGeometry = new THREE.ExtrudeGeometry(browShape, { depth: BROW.width, bevelEnabled: false });
-    browGeometry.rotateY(-Math.PI / 2);
-    browGeometry.translate(BROW.width / 2, 0, 0);
-    const browPos = browGeometry.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < browPos.count; i++) {
-      browPos.setX(i, browPos.getX(i) * (1 - BROW.taper * (BROW.rearZ - browPos.getZ(i))));
-    }
-    browGeometry.computeVertexNormals();
+    // Camera housing from flat panels: a tall centre and two low wings, all under the LiDAR's beams
+    // (tools/lidar-sim.mts checks this against the same geometry).
     const browShell = new THREE.Group();
-    add(browShell, browGeometry, browShellMat);
-    browShell.add(new THREE.LineSegments(keep(new THREE.EdgesGeometry(browGeometry, 25)), browEdgeMat));
+    housingGeometries().forEach(g => {
+      add(browShell, g, browShellMat);
+      browShell.add(new THREE.LineSegments(keep(new THREE.EdgesGeometry(g, 20)), browEdgeMat));
+    });
     browArray.add(browShell); parts.browShell = browShell;
 
+    // Frame: bar and outriggers inside the housing, a tube post for the LiDAR, feet on the brow panel.
+    const sensorFrame = lidarFrame();
+    const post = lidarPostParts();
     const browBar = new THREE.Group();
-    box(browBar, M.alu, BROW.barLength, 0.05, 0.08, 0, BROW.barY, BROW.barZ);
-    box(browBar, M.alu, 0.16, 0.05, 0.14, 0, BROW.barY, BROW.mastZ - 0.02);
+    box(browBar, M.alu, BROW.barLength, 0.04, 0.08, 0, BROW.barY, BROW.barZ);
+    // Feet sit flat on the brow panel inside the wings, so nothing shows behind the housing.
+    const footZ = 1.88, footY = panelY(footZ) + 0.005, panelSlope = Math.atan((panelY(1.9) - panelY(1.86)) / 0.04);
     [-1, 1].forEach(s => {
       strut(browBar, M.alu, V3(s * BROW.barLength / 2, BROW.barY, BROW.barZ), V3(s * BROW.earX, BROW.earY, BROW.earZ), 0.04);
-      strut(browBar, M.alu, V3(s * 0.55, BROW.barY, BROW.barZ), V3(s * 0.55, 2.50, 2.02), 0.04);
-      box(browBar, M.alu, 0.12, 0.02, 0.12, s * 0.55, 2.50, 2.02);
+      strut(browBar, M.alu, V3(s * 0.55, BROW.barY, BROW.barZ), V3(s * 0.55, footY + 0.008, footZ - 0.006), 0.03);
+      box(browBar, M.alu, 0.10, 0.008, 0.06, s * 0.55, footY, footZ).rotation.x = -panelSlope;
     });
-    tube(browBar, M.alu, 0.03, BROW.mastTop - BROW.barY, 0, (BROW.mastTop + BROW.barY) / 2, BROW.mastZ);
-    strut(browBar, M.alu, V3(0, BROW.mastTop - 0.05, BROW.mastZ), V3(0, 2.665, 2.21), 0.03);
-    box(browBar, M.alu, 0.12, 0.02, 0.10, 0, 2.665, 2.21);
+    const postMat = std(0xe9ecee, 0.42, 0.25);
+    owned.push(postMat);
+    [post.tube, post.plate].forEach(part => {
+      const mesh = add(browBar, new THREE.CylinderGeometry(part.radius, part.radius, part.height, 64), part === post.tube ? postMat : M.alu, 0, part.y, 0);
+      mesh.applyMatrix4(sensorFrame);
+    });
+    // inside the housing: flange at the cut end of the tube and a gusset back to the bar
+    strut(browBar, M.alu, V3(0, BROW.barY + 0.02, BROW.barZ + 0.02), post.foot.clone().add(V3(0, 0.01, -0.02)), 0.05);
     browArray.add(browBar); parts.browBar = browBar;
 
     const browCams = new THREE.Group();
@@ -1096,7 +1099,15 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
       box(head, M.dark, 0.115, 0.095, 0.008, 0, 0, -0.004, false);
       tube(head, M.alu, 0.034, 0.012, 0, 0, -0.012, 'z');
       tube(head, M.lens, 0.028, 0.022, 0, 0, -0.024, 'z');
-      if (!c.tail) { browCams.add(head); return; }
+      if (!c.tail) {
+        browCams.add(head);
+        // Corner cameras sit outside the housing at the bar ends, each in its own hooded case.
+        if (Math.abs(c.az) > 30 && Math.abs(c.az) < 90) {
+          box(head, M.trim, 0.125, 0.008, 0.14, 0, 0.05, 0.03, false);
+          strut(browCams, M.alu, V3(Math.sign(c.x) * BROW.barLength / 2, BROW.barY, BROW.barZ), V3(c.x, c.y - 0.03, c.z + 0.04), 0.03);
+        }
+        return;
+      }
       // Tail cameras: bracket on the fixed roof edge, clear of the rear doors, with a rain hood.
       box(head, M.trim, 0.125, 0.008, 0.13, 0, 0.05, 0.02, false);
       browTail.add(head);
@@ -1106,22 +1117,51 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     });
     browArray.add(browCams, browTail); parts.browCams = browCams; parts.browTail = browTail;
 
-    const lidarBody = BROW.mastTop + 0.02 + BROW.lidarHeight / 2;
+    /* Ouster OS1 Rev8, drawn to its datasheet: finned base, window band, top plate and halo cap,
+       bayonet connector at the back. Built in the sensor frame, then tipped with it. */
     const browLidar = new THREE.Group();
-    tube(browLidar, M.alu, BROW.lidarRadius + 0.01, 0.02, 0, BROW.mastTop + 0.01, BROW.mastZ);
-    tube(browLidar, M.sensor, BROW.lidarRadius, BROW.lidarHeight, 0, lidarBody, BROW.mastZ);
-    tube(browLidar, M.lens, BROW.lidarRadius + 0.002, 0.05, 0, lidarBody, BROW.mastZ);
+    const lidarBody = new THREE.Group();
+    const finMat = std(0x2a2e33, 0.5, 0.6);
+    const windowMat = new THREE.MeshPhysicalMaterial({ color: 0x050608, roughness: 0.08, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.04 });
+    owned.push(finMat, windowMat);
+    const fins = new THREE.Shape();
+    const FINS = 24, rIn = LIDAR.radius - 0.004, rOut = LIDAR.radius + 0.003;
+    for (let i = 0; i <= FINS * 6; i++) {
+      const a = (i / (FINS * 6)) * Math.PI * 2, k = (i % 6) / 6;
+      const r = k < 0.5 ? rOut : rIn + (rOut - rIn) * Math.abs(Math.cos(k * Math.PI * 2)) ** 3;
+      if (i) fins.lineTo(Math.cos(a) * r, Math.sin(a) * r); else fins.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    const finGeometry = new THREE.ExtrudeGeometry(fins, { depth: LIDAR.window[0], bevelEnabled: false, curveSegments: 1 });
+    finGeometry.rotateX(-Math.PI / 2);
+    add(lidarBody, finGeometry, finMat, 0, -LIDAR.origin, 0);
+    const band = LIDAR.window[1] - LIDAR.window[0];
+    add(lidarBody, new THREE.CylinderGeometry(LIDAR.radius, LIDAR.radius, band, 64), windowMat, 0, (LIDAR.window[0] + LIDAR.window[1]) / 2 - LIDAR.origin, 0);
+    const top = LIDAR.body - LIDAR.window[1];
+    add(lidarBody, new THREE.CylinderGeometry(LIDAR.radius - 0.001, LIDAR.radius, top, 64), finMat, 0, LIDAR.window[1] + top / 2 - LIDAR.origin, 0);
+    const halo = new THREE.LatheGeometry([
+      new THREE.Vector2(0, LIDAR.cap), new THREE.Vector2(LIDAR.radius - 0.014, LIDAR.cap), new THREE.Vector2(LIDAR.radius - 0.004, LIDAR.cap - 0.004),
+      new THREE.Vector2(LIDAR.radius, LIDAR.cap - 0.011), new THREE.Vector2(LIDAR.radius, 0),
+    ], 64);
+    add(lidarBody, halo, M.shell, 0, LIDAR.body - LIDAR.origin, 0);
+    // Bayonet connector at the back; the cable loops down into a gland on the post.
+    tube(lidarBody, M.dark, 0.009, 0.022, 0, LIDAR.window[0] * 0.5 - LIDAR.origin, LIDAR.radius + 0.008, 'z');
+    strut(lidarBody, M.dark, V3(0, LIDAR.window[0] * 0.5 - LIDAR.origin, LIDAR.radius + 0.016), V3(0, -LIDAR.origin - 0.06, 0.06), 0.011);
+    tube(lidarBody, M.dark, 0.012, 0.016, 0, -LIDAR.origin - 0.065, 0.058, 'z');
+    lidarBody.applyMatrix4(sensorFrame);
+    browLidar.add(lidarBody);
     browArray.add(browLidar); parts.browLidar = browLidar;
 
-    const stackTop = BROW.mastTop + 0.02 + BROW.lidarHeight;
+    // Survey antenna on a level plate bolted to the front of the roof; the IMU sits on the bar under the LiDAR.
     const browGnss = new THREE.Group();
     const browAntenna = new THREE.Group();
-    [-0.05, 0.05].forEach(x => tube(browAntenna, M.alu, 0.008, 0.02, x, stackTop + 0.01, BROW.mastZ));
-    tube(browAntenna, M.alu, 0.09, 0.012, 0, stackTop + 0.026, BROW.mastZ);
-    tube(browAntenna, M.shell, 0.08, 0.05, 0, stackTop + 0.057, BROW.mastZ);
-    tube(browAntenna, M.shell, 0.05, 0.012, 0, stackTop + 0.088, BROW.mastZ);
+    box(browAntenna, M.alu, 0.22, GNSS.plate, 0.22, 0, H + GNSS.plate / 2, GNSS.z);
+    const radome = new THREE.LatheGeometry([
+      new THREE.Vector2(0, GNSS.height), new THREE.Vector2(GNSS.radius * 0.55, GNSS.height - 0.006),
+      new THREE.Vector2(GNSS.radius * 0.92, GNSS.height * 0.55), new THREE.Vector2(GNSS.radius, 0.012), new THREE.Vector2(GNSS.radius, 0),
+    ], 48);
+    add(browAntenna, radome, M.shell, 0, H + GNSS.plate, GNSS.z);
     browGnss.add(browAntenna);
-    box(browGnss, M.instrument, 0.11, 0.05, 0.07, 0, BROW.barY + 0.05, BROW.barZ);
+    box(browGnss, M.instrument, 0.11, 0.05, 0.07, 0, BROW.barY + 0.045, BROW.barZ + 0.02);
     browArray.add(browGnss); parts.browGnss = browGnss; anchorOn.browGnss = browAntenna;
 
     const browCable = new THREE.Group();
@@ -1147,6 +1187,15 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
     const fanRearMat = new THREE.MeshBasicMaterial({ color: 0xb3a369, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
     const fanTailMat = new THREE.MeshBasicMaterial({ color: 0x3f68b5, transparent: true, opacity: 0.24, depthWrite: false, side: THREE.DoubleSide });
     owned.push(fanMat, fanRearMat, fanTailMat);
+    // Simulated returns of one LiDAR rotation on this street (tools/lidar-sim.mts writes the occlusion mask).
+    const scan = lidarFootprint();
+    const scanGeometry = keep(new THREE.BufferGeometry());
+    scanGeometry.setAttribute('position', new THREE.BufferAttribute(scan.positions, 3));
+    scanGeometry.setAttribute('color', new THREE.BufferAttribute(scan.colors, 3));
+    // Drawn with the transparent pass, after the road, which would otherwise paint over them.
+    const scanMat = new THREE.PointsMaterial({ size: 0.11, vertexColors: true, transparent: true, depthWrite: false });
+    owned.push(scanMat);
+    browCoverage.add(new THREE.Points(scanGeometry, scanMat));
     BROW_CAMERAS.forEach(c => {
       const start = (90 - c.az - c.hfov / 2) * Math.PI / 180;
       const fan = add(browCoverage, new THREE.CircleGeometry(c.range, 48, start, c.hfov * Math.PI / 180),
@@ -1493,7 +1542,9 @@ export default function VanScene({ view, body, selected, showPins, showLimit, sh
       highlight: p => {
         const target = p ? parts[p] : null;
         highlightedPart = target ?? null;
-        // Selecting the frame fades the fairing so the structure inside can be seen.
+        // Selecting the frame fades the housing so the structure inside can be seen.
+        // Opaque unless faded, so ambient occlusion does not shade the frame through the skin.
+        if (browShellMat.transparent !== (p === 'browBar')) { browShellMat.transparent = p === 'browBar'; browShellMat.needsUpdate = true; }
         browShellMat.opacity = p === 'browBar' ? 0.2 : 1;
         browShellMat.depthWrite = p !== 'browBar';
         if (!target || !target.visible) outline.visible = false;
